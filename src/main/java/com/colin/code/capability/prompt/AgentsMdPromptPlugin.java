@@ -3,9 +3,6 @@ package com.colin.code.capability.prompt;
 import com.colin.code.core.prompt.PromptPlugin;
 import com.colin.code.runtime.config.AppConfig;
 
-import com.colin.code.core.prompt.PromptPlugin;
-import com.colin.code.runtime.config.AppConfig;
-
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
