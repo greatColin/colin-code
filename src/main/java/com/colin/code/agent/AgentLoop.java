@@ -1,6 +1,6 @@
 package com.colin.code.agent;
 
-import com.colin.code.config.DemoConfig;
+import com.colin.code.runtime.config.AppConfig;
 import com.colin.code.provider.LLMProvider;
 import com.colin.code.provider.LLMResponse;
 import com.colin.code.provider.ToolCallRequest;
@@ -23,12 +23,12 @@ import java.util.Map;
  */
 public class AgentLoop {
 
-    private final DemoConfig config;
+    private final AppConfig config;
     private final LLMProvider provider;
     private final ContextBuilder contextBuilder;
     private final ToolRegistry toolRegistry;
 
-    public AgentLoop(DemoConfig config, LLMProvider provider) {
+    public AgentLoop(AppConfig config, LLMProvider provider) {
         this.config = config;
         this.provider = provider;
         this.contextBuilder = new ContextBuilder(config);

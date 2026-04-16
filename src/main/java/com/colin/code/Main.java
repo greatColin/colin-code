@@ -1,7 +1,7 @@
 package com.colin.code;
 
 import com.colin.code.agent.AgentLoop;
-import com.colin.code.config.DemoConfig;
+import com.colin.code.runtime.config.AppConfig;
 import com.colin.code.provider.LLMProvider;
 import com.colin.code.provider.LLMResponse;
 import com.colin.code.provider.MockProvider;
@@ -35,7 +35,7 @@ public class Main {
 
     /** 使用 MockProvider 模拟两轮对话：第一轮调用 exec 工具，第二轮返回总结 */
     private static void runWithMock() {
-        DemoConfig config = new DemoConfig();
+        AppConfig config = new AppConfig();
         LLMProvider provider = buildMockProvider();
         AgentLoop agent = new AgentLoop(config, provider);
 
@@ -48,7 +48,7 @@ public class Main {
 
     /** 使用真实的 OpenAI 兼容 API */
     private static void runWithRealAPI() {
-        DemoConfig config = new DemoConfig();
+        AppConfig config = new AppConfig();
         if (config.getApiKey().isEmpty()) {
             System.out.println("请先设置环境变量 OPENAI_API_KEY");
             return;

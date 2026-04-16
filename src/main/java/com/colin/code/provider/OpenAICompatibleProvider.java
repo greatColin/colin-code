@@ -2,7 +2,7 @@ package com.colin.code.provider;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.colin.code.config.DemoConfig;
+import com.colin.code.runtime.config.AppConfig;
 
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -32,7 +32,7 @@ public class OpenAICompatibleProvider implements LLMProvider {
     private final String defaultModel;
     private final OkHttpClient client;
 
-    public OpenAICompatibleProvider(DemoConfig config) {
+    public OpenAICompatibleProvider(AppConfig config) {
         this.apiKey = config.getApiKey();
         this.apiBase = config.getApiBase();
         this.defaultModel = config.getModel();

@@ -1,6 +1,6 @@
 package com.colin.code.agent;
 
-import com.colin.code.config.DemoConfig;
+import com.colin.code.runtime.config.AppConfig;
 import com.colin.code.provider.LLMResponse;
 import com.colin.code.provider.ToolCallRequest;
 import com.colin.code.prompt.PromptSegment;
@@ -22,9 +22,9 @@ import java.util.Map;
  */
 public class ContextBuilder {
 
-    private final DemoConfig config;
+    private final AppConfig config;
 
-    public ContextBuilder(DemoConfig config) {
+    public ContextBuilder(AppConfig config) {
         this.config = config;
     }
 
