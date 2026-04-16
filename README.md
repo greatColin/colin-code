@@ -20,7 +20,60 @@ runtime/        ← Dynamic assembly hub: CapabilityLoader, StandardCapability, 
 entry/          ← Multiple entry points: MinimalDemo (tutorial), CliApp (full features)
 ```
 
-### 3. Chain-Based Capability Assembly
+### 3. Project Structure
+
+Key packages and classes:
+
+```
+com.coloop.agent
+├── core/                       ← Minimal kernel, never bloats
+│   ├── agent/
+│   │   ├── AgentLoop.java      ← Core while-loop: LLM → tool calls → result
+│   │   └── AgentHook.java      ← Lifecycle hook interface
+│   ├── message/
+│   │   └── MessageBuilder.java ← Abstract message assembler interface
+│   ├── prompt/
+│   │   └── PromptPlugin.java   ← Abstract prompt generator interface
+│   ├── provider/
+│   │   ├── LLMProvider.java    ← LLM provider interface
+│   │   ├── LLMResponse.java
+│   │   └── ToolCallRequest.java
+│   ├── tool/
+│   │   ├── Tool.java           ← Tool contract
+│   │   ├── BaseTool.java
+│   │   └── ToolRegistry.java   ← Tool registration & dispatch
+│   └── interceptor/
+│       └── InputInterceptor.java ← Pre-LLM input shortcut interceptor
+├── capability/                 ← Pluggable implementations
+│   ├── message/
+│   │   └── StandardMessageBuilder.java ← OpenAI-format message builder
+│   ├── prompt/
+│   │   ├── PromptSegment.java        ← System prompt segment enum
+│   │   ├── BasePromptPlugin.java
+│   │   ├── SkillPromptPlugin.java
+│   │   └── AgentsMdPromptPlugin.java
+│   ├── provider/
+│   │   ├── openai/
+│   │   │   └── OpenAICompatibleProvider.java
+│   │   └── mock/
+│   │       └── MockProvider.java
+│   ├── tool/
+│   │   └── exec/
+│   │       └── ExecTool.java
+│   └── hook/
+│       └── LoggingHook.java
+├── runtime/                    ← Assembly hub
+│   ├── CapabilityLoader.java   ← Fluent chain builder
+│   ├── StandardCapability.java ← Built-in capability catalog
+│   ├── AgentRuntime.java       ← Runnable agent wrapper
+│   └── config/
+│       └── AppConfig.java
+└── entry/                      ← Entry points
+    ├── MinimalDemo.java        ← Tutorial mode (mock provider)
+    └── CliApp.java             ← Full mode (real API)
+```
+
+### 4. Chain-Based Capability Assembly
 Assemble agents flexibly via the `CapabilityLoader` fluent API:
 ```java
 new CapabilityLoader()
