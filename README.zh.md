@@ -140,9 +140,9 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
 ### 我们缺失的（对 Vibe Coding / Spec Coding 有高价值）
 | 缺失能力 | 影响说明 | 优先级 |
 |----------|----------|--------|
-| **文件系统工具** | 无法读、写、编辑、搜索代码文件，这是 Coding Agent 的根基 | P0 |
-| **对话历史持久化** | 每次 `chat()` 独立，无法在多轮对话中保持上下文和记忆 | P0 |
-| **流式输出（Streaming）** | 用户需等待整段回复生成完毕，体验远不如逐字输出 | P0 |
+| **文件系统工具** | ✅ 已实现：`read_file`、`write_file`、`edit_file`、`search_files`、`list_directory` | P0 |
+| **对话历史持久化** | ✅ 已实现：`AgentLoop` 维护跨轮次消息列表 | P0 |
+| **流式输出（Streaming）** | ✅ 已实现：`LLMProvider.chatStream()` + `OpenAICompatibleProvider` SSE 逐字输出 | P0 |
 | **计划模式（Plan Mode）** | 无法让 Agent 先制定计划、获得用户确认后再执行，容易“先做后错” | P1 |
 | **并行 Tool Calls** | OpenAI API 支持一次请求返回多个 tool call，但我们目前串行执行 | P1 |
 | **上下文压缩 / 滑动窗口** | 长会话会导致消息列表膨胀，最终超出模型上下文限制 | P1 |
@@ -161,19 +161,19 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
 
 基于上述差异，结合“核心 Agent Loop 内核”这一定位，我们整理出以下发展方向：
 
-### 阶段一：让 Loop 能写代码（基础生存能力）
+### 阶段一：让 Loop 能写代码（基础生存能力） ✅ 已完成
 1. **文件工具集（Filesystem Tools）**
-   - `read_file`：读取文件内容，支持行号范围、偏移量
-   - `write_file`：创建新文件
-   - `edit_file`：基于精确字符串替换的安全编辑
-   - `search_files`：Grep 风格内容搜索
-   - `list_directory`：目录 listing
-2. **对话历史持久化**
-   - 内存级 `Conversation` 对象，支持多轮 `chat()`
-   - 可选的磁盘持久化（JSONL 格式）
-3. **流式输出支持**
-   - `LLMProvider` 增加流式接口，终端逐字打印
-   - 同时支持流式中的 Tool Call 检测
+   - ✅ `read_file`：读取文件内容，支持行号范围、偏移量
+   - ✅ `write_file`：创建新文件（拒绝覆盖已存在文件）
+   - ✅ `edit_file`：基于精确字符串替换的安全编辑
+   - ✅ `search_files`：正则表达式内容搜索，支持 glob 过滤
+   - ✅ `list_directory`：目录 listing
+2. **对话历史持久化** ✅
+   - `AgentLoop` 内部维护消息列表，支持多轮 `chat()`
+3. **流式输出支持** ✅
+   - `LLMProvider.chatStream()` 接口，默认退化为同步模式
+   - `OpenAICompatibleProvider` 实现 SSE 逐字输出
+   - 支持流式中的 Tool Call 检测与累积
 
 ### 阶段二：让 Loop 更可靠（工程化体验）
 4. **计划模式（Plan Mode）**

@@ -23,6 +23,11 @@ public class CliApp {
 
         AgentRuntime runtime = new CapabilityLoader()
             .withCapability(StandardCapability.EXEC_TOOL, config)
+            .withCapability(StandardCapability.READ_FILE_TOOL, config)
+            .withCapability(StandardCapability.WRITE_FILE_TOOL, config)
+            .withCapability(StandardCapability.EDIT_FILE_TOOL, config)
+            .withCapability(StandardCapability.SEARCH_FILES_TOOL, config)
+            .withCapability(StandardCapability.LIST_DIRECTORY_TOOL, config)
             .withCapability(StandardCapability.BASE_PROMPT, config)
             .withCapability(StandardCapability.LOGGING_HOOK, config)
             .build(provider, config);

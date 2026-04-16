@@ -20,6 +20,11 @@ public interface MessageBuilder {
     List<Map<String, Object>> buildInitial(String userMessage);
 
     /**
+     * 向已有消息列表追加 user 消息。
+     */
+    void addUserMessage(List<Map<String, Object>> messages, String userMessage);
+
+    /**
      * 向消息列表追加 assistant 消息（含可能的 tool_calls）。
      */
     void addAssistantMessage(List<Map<String, Object>> messages, LLMResponse response);

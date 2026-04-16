@@ -56,6 +56,14 @@ public class StandardMessageBuilder implements MessageBuilder {
     }
 
     @Override
+    public void addUserMessage(List<Map<String, Object>> messages, String userMessage) {
+        Map<String, Object> userMsg = new HashMap<>();
+        userMsg.put("role", "user");
+        userMsg.put("content", userMessage != null ? userMessage : "");
+        messages.add(userMsg);
+    }
+
+    @Override
     public void addAssistantMessage(List<Map<String, Object>> messages, LLMResponse response) {
         Map<String, Object> msg = new HashMap<>();
         msg.put("role", "assistant");

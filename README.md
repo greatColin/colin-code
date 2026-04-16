@@ -140,9 +140,9 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
 ### What We Are Missing (High Value for Vibe / Spec Coding)
 | Missing Capability | Impact | Priority |
 |--------------------|--------|----------|
-| **Filesystem Tools** | Cannot read, write, edit, or search code files — the foundation of a Coding Agent | P0 |
-| **Conversation History Persistence** | Each `chat()` is isolated; no multi-turn context or memory | P0 |
-| **Streaming Output** | Users must wait for the full response; no word-by-word printing | P0 |
+| **Filesystem Tools** | ✅ Done: `read_file`, `write_file`, `edit_file`, `search_files`, `list_directory` | P0 |
+| **Conversation History Persistence** | ✅ Done: `AgentLoop` maintains message list across `chat()` calls | P0 |
+| **Streaming Output** | ✅ Done: `LLMProvider.chatStream()` + `OpenAICompatibleProvider` SSE word-by-word | P0 |
 | **Plan Mode** | No way for the agent to draft a plan, get user confirmation, then execute | P1 |
 | **Parallel Tool Calls** | OpenAI API supports multiple tool calls per turn, but we execute them serially | P1 |
 | **Context Compression / Sliding Window** | Long sessions bloat the message list and eventually exceed context limits | P1 |
@@ -159,19 +159,19 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
 
 ## Roadmap (Brainstormed)
 
-### Phase 1: Make the Loop Able to Write Code (Basic Survival)
+### Phase 1: Make the Loop Able to Write Code (Basic Survival) ✅ Done
 1. **Filesystem Tools**
-   - `read_file`: read file contents with line-range / offset support
-   - `write_file`: create new files
-   - `edit_file`: safe editing based on exact string replacement
-   - `search_files`: grep-style content search
-   - `list_directory`: directory listing
-2. **Conversation History Persistence**
-   - In-memory `Conversation` object supporting multi-turn `chat()`
-   - Optional disk persistence (JSONL format)
-3. **Streaming Output Support**
-   - Add streaming interface to `LLMProvider` with terminal word-by-word printing
-   - Detect tool calls during the stream
+   - ✅ `read_file`: read file contents with line-range / offset support
+   - ✅ `write_file`: create new files (refuses to overwrite existing files)
+   - ✅ `edit_file`: safe editing based on exact string replacement
+   - ✅ `search_files`: regex content search with optional glob filtering
+   - ✅ `list_directory`: directory listing
+2. **Conversation History Persistence** ✅
+   - `AgentLoop` maintains the message list internally, supporting multi-turn `chat()`
+3. **Streaming Output Support** ✅
+   - `LLMProvider.chatStream()` interface with default fallback to synchronous `chat()`
+   - `OpenAICompatibleProvider` implements true SSE word-by-word streaming
+   - Detects and accumulates tool calls during the stream
 
 ### Phase 2: Make the Loop Reliable (Engineering Experience)
 4. **Plan Mode**

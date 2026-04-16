@@ -26,4 +26,33 @@ public interface LLMProvider {
 
     /** 返回默认模型名 */
     String getDefaultModel();
+
+    /**
+     * 流式对话补全。默认实现退化为同步 chat() 一次性回调。
+     */
+    default void chatStream(List<Map<String, Object>> messages,
+                            List<Map<String, Object>> tools,
+                            String model,
+                            int maxTokens,
+                            double temperature,
+                            StreamConsumer consumer) {
+        LLMResponse response = chat(messages, tools, model, maxTokens, temperature);
+        if (response.getContent() != null && !response.getContent().isEmpty()) {
+            consumer.onContent(response.getContent());
+        }
+        for (ToolCallRequest tc : response.getToolCalls()) {
+            consumer.onToolCall(tc);
+        }
+        consumer.onComplete(response);
+    }
+
+    /**
+     * 流式消费回调接口。
+     */
+    interface StreamConsumer {
+        void onContent(String chunk);
+        void onToolCall(ToolCallRequest toolCall);
+        void onComplete(LLMResponse response);
+        void onError(String error);
+    }
 }

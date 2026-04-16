@@ -23,6 +23,8 @@ public class AgentLoop {
     private final List<InputInterceptor> interceptors;
     private final AppConfig config;
 
+    private List<Map<String, Object>> messages;
+
     public AgentLoop(
             LLMProvider provider,
             ToolRegistry toolRegistry,
@@ -53,7 +55,7 @@ public class AgentLoop {
             }
         }
 
-        List<Map<String, Object>> messages = messageBuilder.buildInitial(userMessage);
+        prepareMessages(userMessage);
 
         for (int iter = 0; iter < config.getMaxIterations(); iter++) {
             for (AgentHook h : hooks) {
@@ -93,5 +95,114 @@ public class AgentLoop {
             h.onLoopEnd(maxIterMsg);
         }
         return maxIterMsg;
+    }
+
+    public String chatStream(String userMessage, final LLMProvider.StreamConsumer consumer) {
+        for (AgentHook h : hooks) {
+            h.onLoopStart(userMessage);
+        }
+
+        for (InputInterceptor ic : interceptors) {
+            Optional<String> direct = ic.intercept(userMessage);
+            if (direct.isPresent()) {
+                for (AgentHook h : hooks) {
+                    h.onLoopEnd(direct.get());
+                }
+                return direct.get();
+            }
+        }
+
+        prepareMessages(userMessage);
+
+        for (int iter = 0; iter < config.getMaxIterations(); iter++) {
+            for (AgentHook h : hooks) {
+                h.beforeLLMCall(messages);
+            }
+
+            final LLMResponse[] responseHolder = new LLMResponse[1];
+            LLMProvider.StreamConsumer accumulatingConsumer = new LLMProvider.StreamConsumer() {
+                @Override
+                public void onContent(String chunk) {
+                    if (consumer != null) {
+                        consumer.onContent(chunk);
+                    }
+                }
+
+                @Override
+                public void onToolCall(ToolCallRequest toolCall) {
+                    if (consumer != null) {
+                        consumer.onToolCall(toolCall);
+                    }
+                }
+
+                @Override
+                public void onComplete(LLMResponse response) {
+                    responseHolder[0] = response;
+                    if (consumer != null) {
+                        consumer.onComplete(response);
+                    }
+                }
+
+                @Override
+                public void onError(String error) {
+                    if (consumer != null) {
+                        consumer.onError(error);
+                    }
+                }
+            };
+
+            provider.chatStream(
+                    messages,
+                    toolRegistry.getDefinitions(),
+                    config.getModel(),
+                    config.getMaxTokens(),
+                    config.getTemperature(),
+                    accumulatingConsumer
+            );
+
+            LLMResponse response = responseHolder[0];
+            if (response == null) {
+                String err = "[Error: streaming returned no response]";
+                for (AgentHook h : hooks) {
+                    h.onLoopEnd(err);
+                }
+                return err;
+            }
+
+            for (AgentHook h : hooks) {
+                h.afterLLMCall(response);
+            }
+
+            if (response.hasToolCalls()) {
+                messageBuilder.addAssistantMessage(messages, response);
+                for (ToolCallRequest tc : response.getToolCalls()) {
+                    String result = toolRegistry.execute(tc);
+                    for (AgentHook h : hooks) {
+                        h.onToolCall(tc, result);
+                    }
+                    messageBuilder.addToolResult(messages, tc, result);
+                }
+            } else {
+                String finalResponse = response.getContent() != null ? response.getContent() : "";
+                for (AgentHook h : hooks) {
+                    h.onLoopEnd(finalResponse);
+                }
+                return finalResponse;
+            }
+        }
+
+        String maxIterMsg = "[Reached max iterations: " + config.getMaxIterations() + "]";
+        for (AgentHook h : hooks) {
+            h.onLoopEnd(maxIterMsg);
+        }
+        return maxIterMsg;
+    }
+
+    private void prepareMessages(String userMessage) {
+        if (messages == null) {
+            messages = messageBuilder.buildInitial(userMessage);
+        } else {
+            messageBuilder.addUserMessage(messages, userMessage);
+        }
     }
 }

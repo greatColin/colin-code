@@ -1,6 +1,7 @@
 package com.coloop.agent.runtime;
 
 import com.coloop.agent.core.agent.AgentLoop;
+import com.coloop.agent.core.provider.LLMProvider;
 
 public class AgentRuntime {
     private final AgentLoop agentLoop;
@@ -11,5 +12,9 @@ public class AgentRuntime {
 
     public String chat(String input) {
         return agentLoop.chat(input);
+    }
+
+    public String chatStream(String input, LLMProvider.StreamConsumer consumer) {
+        return agentLoop.chatStream(input, consumer);
     }
 }

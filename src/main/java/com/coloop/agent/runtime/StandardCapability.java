@@ -5,6 +5,11 @@ import com.coloop.agent.capability.prompt.AgentsMdPromptPlugin;
 import com.coloop.agent.capability.prompt.BasePromptPlugin;
 import com.coloop.agent.capability.prompt.SkillPromptPlugin;
 import com.coloop.agent.capability.tool.exec.ExecTool;
+import com.coloop.agent.capability.tool.filesystem.ReadFileTool;
+import com.coloop.agent.capability.tool.filesystem.WriteFileTool;
+import com.coloop.agent.capability.tool.filesystem.EditFileTool;
+import com.coloop.agent.capability.tool.filesystem.SearchFilesTool;
+import com.coloop.agent.capability.tool.filesystem.ListDirectoryTool;
 import com.coloop.agent.core.agent.AgentHook;
 import com.coloop.agent.core.interceptor.InputInterceptor;
 import com.coloop.agent.core.prompt.PromptPlugin;
@@ -61,6 +66,56 @@ public enum StandardCapability {
             @Override
             public Object apply(AppConfig config) {
                 return new LoggingHook();
+            }
+        }
+    ),
+    READ_FILE_TOOL(
+        "read_file", "文件读取工具", "读取文件内容，支持行号范围",
+        CapabilityType.TOOL,
+        new Function<AppConfig, Object>() {
+            @Override
+            public Object apply(AppConfig config) {
+                return new ReadFileTool();
+            }
+        }
+    ),
+    WRITE_FILE_TOOL(
+        "write_file", "文件写入工具", "写入新文件，若已存在则拒绝覆盖",
+        CapabilityType.TOOL,
+        new Function<AppConfig, Object>() {
+            @Override
+            public Object apply(AppConfig config) {
+                return new WriteFileTool();
+            }
+        }
+    ),
+    EDIT_FILE_TOOL(
+        "edit_file", "文件编辑工具", "基于精确字符串替换编辑文件",
+        CapabilityType.TOOL,
+        new Function<AppConfig, Object>() {
+            @Override
+            public Object apply(AppConfig config) {
+                return new EditFileTool();
+            }
+        }
+    ),
+    SEARCH_FILES_TOOL(
+        "search_files", "文件搜索工具", "使用正则表达式搜索文件内容",
+        CapabilityType.TOOL,
+        new Function<AppConfig, Object>() {
+            @Override
+            public Object apply(AppConfig config) {
+                return new SearchFilesTool();
+            }
+        }
+    ),
+    LIST_DIRECTORY_TOOL(
+        "list_directory", "目录列出工具", "列出目录中的文件和子目录",
+        CapabilityType.TOOL,
+        new Function<AppConfig, Object>() {
+            @Override
+            public Object apply(AppConfig config) {
+                return new ListDirectoryTool();
             }
         }
     );
