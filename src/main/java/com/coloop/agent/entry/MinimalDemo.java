@@ -20,10 +20,9 @@ public class MinimalDemo {
         AppConfig config;
         try {
             config = AppConfig.fromSetting("coloop-agent-setting.json");
-            config.applyModelConfig("openai");
         } catch (Exception e) {
             System.out.println("Failed to load config, using default: " + e.getMessage());
-            config = new AppConfig();
+            config = AppConfig.fromEnv();
         }
         LLMProvider provider = buildMockProvider();
 

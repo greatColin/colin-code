@@ -19,7 +19,7 @@ public class CliApp {
             return;
         }
 
-        LLMProvider provider = new OpenAICompatibleProvider(config, "openai");
+        LLMProvider provider = new OpenAICompatibleProvider(config.getModelConfig("openai"));
 
         AgentRuntime runtime = new CapabilityLoader()
             .withCapability(StandardCapability.EXEC_TOOL, config)
