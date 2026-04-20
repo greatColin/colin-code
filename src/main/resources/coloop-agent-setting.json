@@ -6,6 +6,11 @@
       "model": "填写模型",
       "maxTokens": 4096,
       "temperature": 0.7
+    },
+    "glm": {
+      "apiKey": "glm-key",
+      "apiBase": "https://open.bigmodel.cn/api/paas/v4",
+      "model": "GLM-4-Flash"
     }
   },
   "mcpServers": {

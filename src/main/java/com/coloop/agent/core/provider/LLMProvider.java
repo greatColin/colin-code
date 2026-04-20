@@ -21,8 +21,8 @@ public interface LLMProvider {
     LLMResponse chat(List<Map<String, Object>> messages,
                      List<Map<String, Object>> tools,
                      String model,
-                     int maxTokens,
-                     double temperature);
+                     Integer maxTokens,
+                     Double temperature);
 
     /** 返回默认模型名 */
     String getDefaultModel();
@@ -33,8 +33,8 @@ public interface LLMProvider {
     default void chatStream(List<Map<String, Object>> messages,
                             List<Map<String, Object>> tools,
                             String model,
-                            int maxTokens,
-                            double temperature,
+                            Integer maxTokens,
+                            Double temperature,
                             StreamConsumer consumer) {
         LLMResponse response = chat(messages, tools, model, maxTokens, temperature);
         if (response.getContent() != null && !response.getContent().isEmpty()) {

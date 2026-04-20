@@ -73,15 +73,19 @@ public class OpenAICompatibleProvider implements LLMProvider {
     public LLMResponse chat(List<Map<String, Object>> messages,
                             List<Map<String, Object>> tools,
                             String model,
-                            int maxTokens,
-                            double temperature) {
+                            Integer maxTokens,
+                            Double temperature) {
         String url = apiBase.endsWith("/") ? apiBase + "chat/completions" : apiBase + "/chat/completions";
 
         Map<String, Object> body = new HashMap<>();
         body.put("model", model != null && !model.isEmpty() ? model : defaultModel);
         body.put("messages", messages);
-        body.put("max_tokens", maxTokens);
-        body.put("temperature", temperature);
+        if(maxTokens != null) {
+            body.put("max_tokens", maxTokens);
+        }
+        if(temperature != null) {
+            body.put("temperature", temperature);
+        }
         if (tools != null && !tools.isEmpty()) {
             body.put("tools", tools);
             body.put("tool_choice", "auto");
@@ -114,8 +118,8 @@ public class OpenAICompatibleProvider implements LLMProvider {
     public void chatStream(List<Map<String, Object>> messages,
                            List<Map<String, Object>> tools,
                            String model,
-                           int maxTokens,
-                           double temperature,
+                           Integer maxTokens,
+                           Double temperature,
                            StreamConsumer consumer) {
         String url = apiBase.endsWith("/") ? apiBase + "chat/completions" : apiBase + "/chat/completions";
 

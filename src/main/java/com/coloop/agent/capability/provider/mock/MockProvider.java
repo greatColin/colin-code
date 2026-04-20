@@ -22,8 +22,8 @@ public class MockProvider implements LLMProvider {
     public LLMResponse chat(List<Map<String, Object>> messages,
                             List<Map<String, Object>> tools,
                             String model,
-                            int maxTokens,
-                            double temperature) {
+                            Integer maxTokens,
+                            Double temperature) {
         if (index >= responses.size()) {
             throw new IllegalStateException("MockProvider ran out of responses at call #" + index);
         }
