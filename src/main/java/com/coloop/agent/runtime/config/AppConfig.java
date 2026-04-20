@@ -39,11 +39,14 @@ public class AppConfig {
     // ==================== 内部类：模型配置 ====================
 
     public static class ModelConfig {
+        private static final int DEFAULT_MAX_TOKENS = 2048;
+        private static final double DEFAULT_TEMPERATURE = 0.7;
+
         private String model;
         private String apiKey;
         private String apiBase;
-        private int maxTokens = 2048;
-        private double temperature = 0.7;
+        private Integer maxTokens;
+        private Double temperature;
 
         public String getModel() { return model; }
         public void setModel(String model) { this.model = model; }
@@ -51,14 +54,14 @@ public class AppConfig {
         public String getApiKey() { return apiKey != null ? apiKey : ""; }
         public void setApiKey(String apiKey) { this.apiKey = apiKey; }
 
-        public String getApiBase() { return apiBase; }
+        public String getApiBase() { return apiBase != null ? apiBase : ""; }
         public void setApiBase(String apiBase) { this.apiBase = apiBase; }
 
-        public int getMaxTokens() { return maxTokens; }
-        public void setMaxTokens(int maxTokens) { this.maxTokens = maxTokens; }
+        public int getMaxTokens() { return maxTokens != null ? maxTokens : DEFAULT_MAX_TOKENS; }
+        public void setMaxTokens(Integer maxTokens) { this.maxTokens = maxTokens; }
 
-        public double getTemperature() { return temperature; }
-        public void setTemperature(double temperature) { this.temperature = temperature; }
+        public double getTemperature() { return temperature != null ? temperature : DEFAULT_TEMPERATURE; }
+        public void setTemperature(Double temperature) { this.temperature = temperature; }
     }
 
     // ==================== 内部类：MCP 服务器配置 ====================
