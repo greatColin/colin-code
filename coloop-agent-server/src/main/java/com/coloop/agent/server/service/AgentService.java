@@ -41,6 +41,9 @@ public class AgentService {
                     sendSystem(session, "A task is currently running. Please wait for it to complete before starting a new session.");
                     return;
                 }
+                if (ctx.agentLoop != null) {
+                    ctx.agentLoop.reset();
+                }
                 ctx.agentLoop = null;
                 sendSystem(session, "New session started. Previous context cleared.");
                 return;
