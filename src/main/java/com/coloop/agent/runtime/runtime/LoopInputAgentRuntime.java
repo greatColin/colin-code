@@ -24,6 +24,7 @@ public class LoopInputAgentRuntime {
                 continue;
             }
             if("/exit".equals(input)) {
+                scanner.close();
                 return "";
             }
             agentLoop.chat(input);

@@ -1,6 +1,7 @@
 package com.coloop.agent.runtime;
 
 import com.coloop.agent.capability.CapabilityType;
+import com.coloop.agent.capability.hook.ClaudeCodeStyleLoggingHook;
 import com.coloop.agent.capability.hook.LoggingHook;
 import com.coloop.agent.capability.mcp.McpCapability;
 import com.coloop.agent.capability.prompt.AgentsMdPromptPlugin;
@@ -53,7 +54,7 @@ public enum StandardCapability {
         new Function<AppConfig, Object>() {
             @Override
             public Object apply(AppConfig config) {
-                return new LoggingHook();
+                return new ClaudeCodeStyleLoggingHook();
             }
         }
     ),
