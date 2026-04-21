@@ -55,4 +55,7 @@ public interface AgentHook {
      * @param finalResponse 返回信息
      */
     default void onLoopEnd(boolean maxIte, String finalResponse) {}
+
+    /** 在运行过程中注入新的用户消息时调用。 */
+    default void onUserMessageInjected(String message) {}
 }

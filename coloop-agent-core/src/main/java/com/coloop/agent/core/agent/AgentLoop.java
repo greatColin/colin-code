@@ -14,6 +14,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Agent 核心循环。单次问答（循环工具调用）
@@ -35,6 +36,9 @@ public class AgentLoop {
 
     /** 跨轮次持久化的消息历史 */
     private List<Map<String, Object>> messages;
+
+    /** 运行中待注入的用户消息队列 */
+    private final ConcurrentLinkedQueue<String> pendingUserMessages = new ConcurrentLinkedQueue<>();
 
     /**
      * @param provider        LLM 提供商
@@ -109,6 +113,7 @@ public class AgentLoop {
                     }
                     messageBuilder.addToolResult(messages, tc, result);
                 }
+                injectPendingUserMessages();
             } else {
                 // 4.2 无 tool_calls 则返回最终响应
                 String finalResponse = response.getContent() != null ? response.getContent() : "";
@@ -221,6 +226,7 @@ public class AgentLoop {
                     }
                     messageBuilder.addToolResult(messages, tc, result);
                 }
+                injectPendingUserMessages();
             } else {
                 String finalResponse = response.getContent() != null ? response.getContent() : "";
                 for (AgentHook h : hooks) {
@@ -235,6 +241,24 @@ public class AgentLoop {
             h.onLoopEnd(maxIterMsg);
         }
         return maxIterMsg;
+    }
+
+    /** 在运行中注入新的用户消息，将在下一轮 LLM 调用前加入消息历史。 */
+    public void injectUserMessage(String userMessage) {
+        pendingUserMessages.offer(userMessage);
+    }
+
+    /** 将等待中的用户消息注入消息历史并通知钩子。 */
+    private void injectPendingUserMessages() {
+        String msg;
+        while ((msg = pendingUserMessages.poll()) != null) {
+            if (messages != null) {
+                messageBuilder.addUserMessage(messages, msg);
+            }
+            for (AgentHook h : hooks) {
+                h.onUserMessageInjected(msg);
+            }
+        }
     }
 
     /** 首次调用初始化消息列表，后续调用追加用户消息（支持多轮对话持久化） */

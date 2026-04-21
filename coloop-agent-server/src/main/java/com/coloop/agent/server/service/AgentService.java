@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
-import java.io.IOException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -22,8 +22,24 @@ public class AgentService {
 
     private final ExecutorService executor = Executors.newCachedThreadPool();
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ConcurrentHashMap<String, SessionContext> sessions = new ConcurrentHashMap<>();
+
+    private static class SessionContext {
+        AgentLoop agentLoop;
+        boolean isRunning;
+    }
 
     public void startChat(String userMessage, WebSocketSession session) {
+        SessionContext ctx = sessions.computeIfAbsent(session.getId(), k -> new SessionContext());
+
+        synchronized (ctx) {
+            if (ctx.isRunning && ctx.agentLoop != null) {
+                ctx.agentLoop.injectUserMessage(userMessage);
+                return;
+            }
+            ctx.isRunning = true;
+        }
+
         executor.submit(() -> {
             try {
                 AppConfig config = AppConfig.fromSetting("coloop-agent-setting.json");
@@ -43,11 +59,24 @@ public class AgentService {
                         .withHook(hook)
                         .build(provider, config);
 
+                synchronized (ctx) {
+                    ctx.agentLoop = agentLoop;
+                }
+
                 agentLoop.chat(userMessage);
             } catch (Exception e) {
                 sendError(session, e.getMessage());
+            } finally {
+                synchronized (ctx) {
+                    ctx.agentLoop = null;
+                    ctx.isRunning = false;
+                }
             }
         });
+    }
+
+    public void removeSession(String sessionId) {
+        sessions.remove(sessionId);
     }
 
     private void sendError(WebSocketSession session, String message) {

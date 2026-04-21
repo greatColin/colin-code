@@ -46,5 +46,6 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         System.out.println("[WebSocket] Disconnected: " + session.getId() + " status=" + status);
+        agentService.removeSession(session.getId());
     }
 }
