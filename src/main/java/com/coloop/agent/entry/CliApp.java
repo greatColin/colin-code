@@ -19,7 +19,7 @@ public class CliApp {
             return;
         }
 
-        LLMProvider provider = new OpenAICompatibleProvider(config.getModelConfig("glm"));
+        LLMProvider provider = new OpenAICompatibleProvider(config.getModelConfig("minimax"));
 
         AgentRuntime runtime = new CapabilityLoader()
             .withCapability(StandardCapability.EXEC_TOOL, config)
@@ -34,7 +34,7 @@ public class CliApp {
             .withCapability(StandardCapability.MCP_CLIENT, config)
             .build(provider, config);
 
-        String result = runtime.chat("简约整理一下今日新闻");
+        String result = runtime.chat("简单整理一下今日新闻");
         System.out.println("\n[真实 API 模式] 最终结果：");
         System.out.println(result);
     }

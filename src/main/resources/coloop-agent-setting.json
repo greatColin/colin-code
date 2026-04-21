@@ -3,16 +3,19 @@
   "execTimeoutSeconds": 30,
   "models": {
     "openai": {
-      "apiKey": "填写apiKey",
-      "apiBase": "填写openai风格url",
-      "model": "填写模型",
-      "maxTokens": 4096,
-      "temperature": 0.7
+      "apiKey": "${COLIN_CODE_OPENAI_API_KEY}",
+      "apiBase": "${COLIN_CODE_OPENAI_API_BASE}",
+      "model": "${COLIN_CODE_OPENAI_MODEL}"
     },
-    "glm": {
-      "apiKey": "glm-key",
+    "glm-4-free": {
+      "apiKey": "${COLIN_CODE_GLM_API_KEY}",
       "apiBase": "https://open.bigmodel.cn/api/paas/v4",
       "model": "GLM-4-Flash"
+    },
+    "minimax": {
+      "apiKey": "${COLIN_CODE_MINIMAX_API_KEY}",
+      "apiBase": "https://api.minimaxi.com/v1",
+      "model": "MiniMax-M2.7"
     }
   },
   "mcpServers": {
@@ -21,10 +24,9 @@
       "command": "uvx",
       "args": ["minimax-coding-plan-mcp"],
       "env": {
-        "MINIMAX_API_KEY": "填写你的API密钥",
-        "MINIMAX_MCP_BASE_PATH": "本地输出目录路径，需保证路径存在且有写入权限",
-        "MINIMAX_API_HOST": "https://api.minimaxi.com",
-        "MINIMAX_API_RESOURCE_MODE": "可选，资源提供方式：url 或 local，默认 url"
+        "MINIMAX_API_KEY": "${models.minimax.apiKey}",
+        "MINIMAX_MCP_BASE_PATH": "/minimaxBase",
+        "MINIMAX_API_HOST": "https://api.minimaxi.com"
       }
     }
   }

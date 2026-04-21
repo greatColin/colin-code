@@ -145,9 +145,9 @@ public class AppConfig {
                 String name = entry.getKey();
                 JsonNode modelNode = entry.getValue();
                 ModelConfig mc = new ModelConfig();
-                mc.setModel(getString(modelNode, "model", ""));
+                mc.setModel(expandEnv(getString(modelNode, "model", "")));
                 mc.setApiKey(expandEnv(getString(modelNode, "apiKey", "")));
-                mc.setApiBase(getString(modelNode, "apiBase", ""));
+                mc.setApiBase(expandEnv(getString(modelNode, "apiBase", "")));
                 mc.setMaxTokens(getInteger(modelNode, "maxTokens"));
                 mc.setTemperature(getDouble(modelNode, "temperature"));
                 config.models.put(name, mc);
