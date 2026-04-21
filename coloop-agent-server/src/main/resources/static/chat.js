@@ -167,20 +167,35 @@
         header.appendChild(titleEl);
         header.appendChild(toggle);
 
+        // Preview: first line or first 80 chars
+        const preview = document.createElement('div');
+        preview.className = 'card-preview';
+        const previewText = bodyContent ? bodyContent.split('\n')[0].substring(0, 80) : '';
+        preview.textContent = previewText + (bodyContent && bodyContent.length > 80 ? '...' : '');
+
         const body = document.createElement('div');
         body.className = 'card-body';
         body.textContent = bodyContent;
 
-        // Default collapsed
+        // Default collapsed: show preview, hide body
         body.classList.add('collapsed');
         toggle.textContent = '▶';
 
         header.addEventListener('click', function() {
-            body.classList.toggle('collapsed');
-            toggle.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+            const isCollapsed = body.classList.contains('collapsed');
+            if (isCollapsed) {
+                body.classList.remove('collapsed');
+                preview.classList.add('collapsed');
+                toggle.textContent = '▼';
+            } else {
+                body.classList.add('collapsed');
+                preview.classList.remove('collapsed');
+                toggle.textContent = '▶';
+            }
         });
 
         card.appendChild(header);
+        card.appendChild(preview);
         card.appendChild(body);
         appendElement(card);
     }

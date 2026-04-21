@@ -4,6 +4,7 @@ import com.coloop.agent.core.tool.BaseTool;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
@@ -97,7 +98,13 @@ public class ExecTool extends BaseTool {
             while ((n = in.read(buf)) != -1) {
                 baos.write(buf, 0, n);
             }
-            return new String(baos.toByteArray(), StandardCharsets.UTF_8);
+            byte[] bytes = baos.toByteArray();
+            // Try UTF-8 first, fallback to system default if replacement chars detected
+            String result = new String(bytes, StandardCharsets.UTF_8);
+            if (result.indexOf('�') >= 0) {
+                result = new String(bytes, Charset.defaultCharset());
+            }
+            return result;
         }
     }
 }
