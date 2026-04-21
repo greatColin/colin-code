@@ -1,4 +1,4 @@
-package com.coloop.agent.runtime;
+package com.coloop.agent.runtime.runtime;
 
 import com.coloop.agent.core.agent.AgentLoop;
 import com.coloop.agent.core.provider.LLMProvider;

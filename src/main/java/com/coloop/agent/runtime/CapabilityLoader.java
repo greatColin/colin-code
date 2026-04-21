@@ -2,6 +2,7 @@ package com.coloop.agent.runtime;
 
 import com.coloop.agent.capability.mcp.McpCapability;
 import com.coloop.agent.core.agent.AgentHook;
+import com.coloop.agent.core.agent.AgentLoop;
 import com.coloop.agent.core.interceptor.InputInterceptor;
 import com.coloop.agent.core.message.MessageBuilder;
 import com.coloop.agent.core.prompt.PromptPlugin;
@@ -9,10 +10,14 @@ import com.coloop.agent.core.provider.LLMProvider;
 import com.coloop.agent.core.tool.Tool;
 import com.coloop.agent.core.tool.ToolRegistry;
 import com.coloop.agent.runtime.config.AppConfig;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 统一加载拓展工具，链式加载组件，构造agentLoop
+ */
 public class CapabilityLoader {
 
     private final List<Tool> tools = new ArrayList<Tool>();
@@ -82,7 +87,14 @@ public class CapabilityLoader {
         return this;
     }
 
-    public AgentRuntime build(LLMProvider provider, AppConfig config) {
+    /**
+     * 构造最基本llm+tool的agent能力
+     *
+     * @param provider
+     * @param config
+     * @return
+     */
+    public @NotNull AgentLoop build(LLMProvider provider, AppConfig config) {
         ToolRegistry registry = new ToolRegistry();
         for (Tool t : tools) {
             registry.register(t);
@@ -93,10 +105,8 @@ public class CapabilityLoader {
             mb = new com.coloop.agent.capability.message.StandardMessageBuilder(promptPlugins, config);
         }
 
-        com.coloop.agent.core.agent.AgentLoop loop = new com.coloop.agent.core.agent.AgentLoop(
-            provider, registry, mb, hooks, interceptors, config
+        return new AgentLoop(
+                provider, registry, mb, hooks, interceptors, config
         );
-
-        return new AgentRuntime(loop);
     }
 }

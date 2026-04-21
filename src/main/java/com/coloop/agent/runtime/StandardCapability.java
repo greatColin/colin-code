@@ -1,5 +1,6 @@
 package com.coloop.agent.runtime;
 
+import com.coloop.agent.capability.CapabilityType;
 import com.coloop.agent.capability.hook.LoggingHook;
 import com.coloop.agent.capability.mcp.McpCapability;
 import com.coloop.agent.capability.prompt.AgentsMdPromptPlugin;
@@ -11,10 +12,6 @@ import com.coloop.agent.capability.tool.filesystem.WriteFileTool;
 import com.coloop.agent.capability.tool.filesystem.EditFileTool;
 import com.coloop.agent.capability.tool.filesystem.SearchFilesTool;
 import com.coloop.agent.capability.tool.filesystem.ListDirectoryTool;
-import com.coloop.agent.core.agent.AgentHook;
-import com.coloop.agent.core.interceptor.InputInterceptor;
-import com.coloop.agent.core.prompt.PromptPlugin;
-import com.coloop.agent.core.tool.Tool;
 import com.coloop.agent.runtime.config.AppConfig;
 
 import java.util.function.Function;
@@ -37,16 +34,6 @@ public enum StandardCapability {
             @Override
             public Object apply(AppConfig config) {
                 return new BasePromptPlugin();
-            }
-        }
-    ),
-    SKILL_PROMPT(
-        "skill_prompt", "技能提示词", "扫描并注入可用技能说明",
-        CapabilityType.PROMPT_PLUGIN,
-        new Function<AppConfig, Object>() {
-            @Override
-            public Object apply(AppConfig config) {
-                return new SkillPromptPlugin();
             }
         }
     ),
@@ -129,7 +116,20 @@ public enum StandardCapability {
                 return new McpCapability(config);
             }
         }
-    );
+    ),
+
+    // todo 实现
+    SKILL_PROMPT(
+            "skill_prompt", "技能提示词", "扫描并注入可用技能说明",
+            CapabilityType.PROMPT_PLUGIN,
+            new Function<AppConfig, Object>() {
+                @Override
+                public Object apply(AppConfig config) {
+                    return new SkillPromptPlugin();
+                }
+            }
+    ),
+    ;
 
     private final String id;
     private final String name;

@@ -10,7 +10,7 @@ import java.util.Map;
 public class LoggingHook implements AgentHook {
     @Override
     public void onLoopStart(String userMessage) {
-        System.out.println("[LOG] Loop start: " + userMessage);
+        System.out.println("[USER INPUT] " + userMessage);
     }
 
     @Override
@@ -26,16 +26,16 @@ public class LoggingHook implements AgentHook {
     @Override
     public void onToolCall(ToolCallRequest toolCall, String result, String formattedArgs) {
         if (formattedArgs != null && !formattedArgs.isEmpty()) {
-            System.out.println("[LOG] Tool executed: " + toolCall.getName() + "(" + formattedArgs + ")");
+            System.out.println("[TOOL EXECUTED] " + toolCall.getName() + "(" + formattedArgs + ")");
         } else {
-            System.out.println("[LOG] Tool executed: " + toolCall.getName());
+            System.out.println("[TOOL EXECUTED] " + toolCall.getName());
         }
     }
 
     @Override
     public void onThinking(String content, String reasoningContent) {
         if (reasoningContent != null && !reasoningContent.isEmpty()) {
-            System.out.println("[THINKING] " + reasoningContent);
+            System.out.println("[THINKING REASON] " + reasoningContent);
         }
         if (content != null && !content.isEmpty()) {
             System.out.println("[THINKING] " + content);
@@ -44,10 +44,11 @@ public class LoggingHook implements AgentHook {
 
     @Override
     public void onLoopEnd(boolean maxIte, String finalResponse) {
-        if(maxIte) {
-            System.out.println(finalResponse);
+        if(!maxIte) {
+            // 输出agent回答
+            System.out.println("[LOOP RESULT] " + finalResponse);
         } else {
-            System.out.println("[LOG] Loop end.");
+            System.out.println("[LOOP ERROR] Loop end. max loop");
         }
     }
 }

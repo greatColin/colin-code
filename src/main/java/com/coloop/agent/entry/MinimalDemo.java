@@ -1,10 +1,10 @@
 package com.coloop.agent.entry;
 
 import com.coloop.agent.capability.provider.mock.MockProvider;
+import com.coloop.agent.core.agent.AgentLoop;
 import com.coloop.agent.core.provider.LLMProvider;
 import com.coloop.agent.core.provider.LLMResponse;
 import com.coloop.agent.core.provider.ToolCallRequest;
-import com.coloop.agent.runtime.AgentRuntime;
 import com.coloop.agent.runtime.CapabilityLoader;
 import com.coloop.agent.runtime.StandardCapability;
 import com.coloop.agent.runtime.config.AppConfig;
@@ -26,7 +26,7 @@ public class MinimalDemo {
         }
         LLMProvider provider = buildMockProvider();
 
-        AgentRuntime runtime = new CapabilityLoader()
+        AgentLoop agentLoop = new CapabilityLoader()
             .withCapability(StandardCapability.EXEC_TOOL, config)
             .withCapability(StandardCapability.READ_FILE_TOOL, config)
             .withCapability(StandardCapability.WRITE_FILE_TOOL, config)
@@ -37,7 +37,7 @@ public class MinimalDemo {
             .withCapability(StandardCapability.BASE_PROMPT, config)
             .build(provider, config);
 
-        String result = runtime.chat("帮我读取 pom.xml 的前 10 行");
+        String result = agentLoop.chat("帮我读取 pom.xml 的前 10 行");
         System.out.println("\n[Mock 模式] 最终结果：");
         System.out.println(result);
     }

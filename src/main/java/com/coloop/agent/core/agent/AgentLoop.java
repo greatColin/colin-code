@@ -16,7 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Agent 核心循环。
+ * Agent 核心循环。单次问答（循环工具调用）
  * <p>
  * 负责 LLM 调用的 while 循环：发送消息 → 接收响应 → 处理 tool_calls → 追加结果 → 继续循环。
  * 支持同步 {@link #chat} 与流式 {@link #chatStream} 两种模式，以及跨轮次消息持久化。
@@ -115,6 +115,7 @@ public class AgentLoop {
                 for (AgentHook h : hooks) {
                     h.onLoopEnd(finalResponse);
                 }
+                messageBuilder.addAssistantMessage(messages, response);
                 return finalResponse;
             }
         }

@@ -1,9 +1,10 @@
 package com.coloop.agent.entry;
 
 import com.coloop.agent.capability.provider.openai.OpenAICompatibleProvider;
+import com.coloop.agent.core.agent.AgentLoop;
 import com.coloop.agent.core.provider.LLMProvider;
-import com.coloop.agent.runtime.AgentRuntime;
 import com.coloop.agent.runtime.CapabilityLoader;
+import com.coloop.agent.runtime.runtime.LoopInputAgentRuntime;
 import com.coloop.agent.runtime.StandardCapability;
 import com.coloop.agent.runtime.config.AppConfig;
 
@@ -21,7 +22,8 @@ public class CliApp {
 
         LLMProvider provider = new OpenAICompatibleProvider(config.getModelConfig("minimax"));
 
-        AgentRuntime runtime = new CapabilityLoader()
+        // 单次循环
+        AgentLoop agentLoop = new CapabilityLoader()
             .withCapability(StandardCapability.EXEC_TOOL, config)
             .withCapability(StandardCapability.READ_FILE_TOOL, config)
             .withCapability(StandardCapability.WRITE_FILE_TOOL, config)
@@ -34,8 +36,8 @@ public class CliApp {
             .withCapability(StandardCapability.MCP_CLIENT, config)
             .build(provider, config);
 
-        String result = runtime.chat("简单整理一下今日新闻");
-        System.out.println("\n[真实 API 模式] 最终结果：");
-        System.out.println(result);
+        // 用户问答，允许追问
+        LoopInputAgentRuntime runtime = new LoopInputAgentRuntime(agentLoop);
+        runtime.chat();
     }
 }
