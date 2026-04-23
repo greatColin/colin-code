@@ -1,4 +1,64 @@
 (function() {
+    // --- Think tag extraction ---
+    function extractThinkBlocks(content) {
+        if (!content) return { thinkContent: '', remainingContent: '' };
+        var thinkRegex = /<think>([\s\S]*?)<\/think>/gi;
+        var thinkParts = [];
+        var match;
+        while ((match = thinkRegex.exec(content)) !== null) {
+            thinkParts.push(match[1].trim());
+        }
+        var remainingContent = content.replace(thinkRegex, '').trim();
+        return {
+            thinkContent: thinkParts.join('\n\n'),
+            remainingContent: remainingContent
+        };
+    }
+
+    // --- Markdown rendering with XSS protection ---
+    function renderMarkdown(content) {
+        if (!content) return '';
+        // Check if libraries are loaded (fallback for offline)
+        if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
+            // Fallback: plain text with BR for newlines
+            return content.replace(/&/g, '&amp;')
+                          .replace(/</g, '&lt;')
+                          .replace(/>/g, '&gt;')
+                          .replace(/\n/g, '<br>');
+        }
+        // Configure marked
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+            headerIds: false,
+            mangle: false
+        });
+        var rawHtml = marked.parse(content);
+        var safeHtml = DOMPurify.sanitize(rawHtml, {
+            ALLOWED_TAGS: [
+                'p', 'br', 'hr',
+                'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                'ul', 'ol', 'li',
+                'strong', 'em', 'del', 'code', 'pre',
+                'a', 'img',
+                'blockquote',
+                'table', 'thead', 'tbody', 'tr', 'th', 'td',
+                'div', 'span'
+            ],
+            ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'target']
+        });
+        return safeHtml;
+    }
+
+    // --- Apply syntax highlighting to code blocks within an element ---
+    function highlightCodeBlocks(container) {
+        if (typeof hljs === 'undefined') return;
+        var codeBlocks = container.querySelectorAll('pre code');
+        codeBlocks.forEach(function(block) {
+            hljs.highlightElement(block);
+        });
+    }
+
     const chatContainer = document.getElementById('chat-container');
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
@@ -104,10 +164,22 @@
     }
 
     function renderAssistant(content) {
-        const el = document.createElement('div');
+        // Extract think blocks from content
+        var extracted = extractThinkBlocks(content || '');
+
+        // Render think content as a thinking card (if any)
+        if (extracted.thinkContent) {
+            renderCard('thinking', '💭 Thinking', extracted.thinkContent);
+        }
+
+        // Render remaining content as markdown
+        var el = document.createElement('div');
         el.className = 'message assistant';
-        el.textContent = content;
+        el.innerHTML = renderMarkdown(extracted.remainingContent);
         appendElement(el);
+
+        // Apply syntax highlighting to code blocks
+        highlightCodeBlocks(el);
     }
 
     function renderLoopStart(attempt) {
