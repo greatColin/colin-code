@@ -39,6 +39,12 @@ body {
     color: #111;
 }
 
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
 .status {
     font-size: 12px;
     padding: 3px 10px;

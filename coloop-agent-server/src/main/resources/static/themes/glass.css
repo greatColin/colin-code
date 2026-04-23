@@ -49,6 +49,12 @@ body {
     text-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
 .status {
     font-size: 12px;
     padding: 4px 12px;

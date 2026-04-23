@@ -41,6 +41,12 @@ body {
     letter-spacing: 0.5px;
 }
 
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
 .status {
     font-size: 11px;
     padding: 2px 8px;

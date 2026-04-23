@@ -38,6 +38,12 @@ body {
     color: #4a306d;
 }
 
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
 .status {
     font-size: 11px;
     padding: 3px 10px;
