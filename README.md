@@ -31,10 +31,16 @@ com.coloop.agent
 │   ├── agent/
 │   │   ├── AgentLoop.java      ← Core while-loop: LLM → tool calls → result
 │   │   └── AgentHook.java      ← Lifecycle hook interface
+│   ├── context/
+│   │   ├── ContextCompactor.java      ← Context compression strategy interface
+│   │   ├── ConversationSummary.java   ← Summary data object
+│   │   └── ConversationState.java     ← Cross-component session state sharing
 │   ├── message/
 │   │   └── MessageBuilder.java ← Abstract message assembler interface
 │   ├── prompt/
 │   │   └── PromptPlugin.java   ← Abstract prompt generator interface
+│   ├── util/
+│   │   └── TokenEstimator.java ← Lightweight token estimation utility
 │   ├── provider/
 │   │   ├── LLMProvider.java    ← LLM provider interface
 │   │   ├── LLMResponse.java
@@ -52,13 +58,16 @@ com.coloop.agent
 │   └── interceptor/
 │       └── InputInterceptor.java ← Pre-LLM input shortcut interceptor
 ├── capability/                 ← Pluggable implementations
+│   ├── context/
+│   │   └── LLMContextCompactor.java  ← LLM-based summary compression
 │   ├── message/
 │   │   └── StandardMessageBuilder.java ← OpenAI-format message builder
 │   ├── prompt/
 │   │   ├── PromptSegment.java        ← System prompt segment enum
 │   │   ├── BasePromptPlugin.java
 │   │   ├── SkillPromptPlugin.java
-│   │   └── AgentsMdPromptPlugin.java
+│   │   ├── AgentsMdPromptPlugin.java
+│   │   └── SummaryPromptPlugin.java  ← Injects summary into system prompt
 │   ├── provider/
 │   │   ├── openai/
 │   │   │   └── OpenAICompatibleProvider.java
@@ -107,6 +116,7 @@ new CapabilityLoader()
 | **AgentsMdPromptPlugin** | Auto-reads `AGENTS.md` from the working directory and injects it |
 | **LoggingHook** | Prints debug logs at key Agent Loop lifecycle nodes |
 | **Streaming (Backend)** | `LLMProvider.chatStream()` interface with SSE word-by-word streaming; `OpenAICompatibleProvider` implements true SSE; tool calls detected and accumulated during the stream |
+| **Context Compression** | `/compact` compresses history into a summary injected into system prompt; auto-compact at 80% threshold keeping last 2 turns; model-level context config (e.g. minimax 200k / glm 100k) |
 | **Command System** | Dynamic `Command` interface + `CommandRegistry`; built-in `/exit`, `/new`, `/compact`, `/model`, `/help`; user-defined command scanning from `~/.coloop/commands/` and `./.coloop/commands/` (project-local overrides user-defined) |
 
 ### 5. Input Interceptor (`InputInterceptor`)
@@ -117,10 +127,22 @@ Intercepts user input before the LLM call. Useful for shortcuts (e.g. `/compact`
 - **OpenAICompatibleProvider**: Supports any OpenAI-compatible API (e.g. OpenRouter, self-hosted vLLM).
 
 ### 7. Configuration Center
-`AppConfig` loads from environment variables, preferring `COLIN_CODE_*` prefixes and falling back to `OPENAI_*`:
+`AppConfig` loads from environment variables or JSON config files, preferring `COLIN_CODE_*` prefixes and falling back to `OPENAI_*`:
 - `COLIN_CODE_OPENAI_MODEL`
 - `COLIN_CODE_OPENAI_API_KEY`
 - `COLIN_CODE_OPENAI_API_BASE`
+- `COLIN_CODE_MAX_CONTEXT` / `MAX_CONTEXT_SIZE`
+
+Context size supports unit suffixes: `100k`, `200k`, `1m`, or raw numbers like `8192`. Can be set globally or per-model:
+```json
+{
+  "maxContextSize": "100k",
+  "models": {
+    "minimax": { "maxContextSize": "200k" },
+    "glm-4-free": { "maxContextSize": "100k" }
+  }
+}
+```
 
 ---
 
@@ -163,9 +185,9 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
 | **Filesystem Tools** | ✅ Done: `read_file`, `write_file`, `edit_file`, `search_files`, `list_directory` | P0 |
 | **Conversation History Persistence** | ✅ Done: `AgentLoop` maintains message list across `chat()` calls | P0 |
 | **Streaming Output (Backend)** | ✅ Done: `LLMProvider.chatStream()` + `OpenAICompatibleProvider` SSE word-by-word | P0 |
+| **Context Compression / Sliding Window** | ✅ Done: `/compact` + auto-compact (80% threshold) + TokenEstimator + model-level context config | P1 |
 | **Plan Mode** | No way for the agent to draft a plan, get user confirmation, then execute | P1 |
 | **Parallel Tool Calls** | OpenAI API supports multiple tool calls per turn, but we execute them serially | P1 |
-| **Context Compression / Sliding Window** | Long sessions bloat the message list and eventually exceed context limits | P1 |
 | **Git Integration** | Cannot auto-check diff, status, generate commit messages, or create branches | P1 |
 | **Checkpoint / Rollback** | No snapshot-and-revert of code changes like Aider | P2 |
 | **MCP (Model Context Protocol) Support** | Cannot connect to external data sources, databases, or document systems | P2 |
@@ -259,9 +281,11 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
     - Integrate with `InputInterceptor` to support `/plan` shortcut
 13. **Parallel Tool Calls**
     - Execute multiple tool calls from a single LLM response in parallel to reduce latency
-14. **Context Management**
-    - Token count estimation and auto-summarization (`/compact`)
-    - Automatically drop early non-critical messages in overly long conversations
+14. **Context Management** ✅ Done
+    - ✅ `/compact` command: compresses history into a summary and injects it into system prompt
+    - ✅ Auto-compact: triggers automatically when token usage exceeds 80%, keeping last 2 turns
+    - ✅ TokenEstimator: lightweight token estimation based on character count (Chinese 1.5 / non-Chinese 0.25)
+    - ✅ Model-level context config: `maxContextSize` field supports raw number / `k` / `m` (e.g. minimax 200k, glm 100k, default 100k)
 15. **Git Integration Tools**
     - `git_status`, `git_diff`, `git_commit`, `git_branch`
     - Auto-check diff before critical operations to prevent accidental changes

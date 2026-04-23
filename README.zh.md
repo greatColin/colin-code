@@ -31,10 +31,16 @@ com.coloop.agent
 │   ├── agent/
 │   │   ├── AgentLoop.java      ← 核心 while 循环：LLM → 解析 Tool Calls → 执行 → 回传
 │   │   └── AgentHook.java      ← 生命周期钩子接口
+│   ├── context/
+│   │   ├── ContextCompactor.java      ← 上下文压缩策略接口
+│   │   ├── ConversationSummary.java   ← 摘要数据对象
+│   │   └── ConversationState.java     ← 跨组件会话状态共享
 │   ├── message/
 │   │   └── MessageBuilder.java ← 消息构建抽象接口
 │   ├── prompt/
 │   │   └── PromptPlugin.java   ← 提示词生成抽象接口
+│   ├── util/
+│   │   └── TokenEstimator.java ← 轻量级 Token 估算工具
 │   ├── provider/
 │   │   ├── LLMProvider.java    ← LLM 提供商接口
 │   │   ├── LLMResponse.java
@@ -52,13 +58,16 @@ com.coloop.agent
 │   └── interceptor/
 │       └── InputInterceptor.java ← 输入拦截器，快捷指令直接短路返回
 ├── capability/                 ← 可插拔能力实现
+│   ├── context/
+│   │   └── LLMContextCompactor.java  ← LLM 生成摘要的默认压缩实现
 │   ├── message/
 │   │   └── StandardMessageBuilder.java ← OpenAI 格式消息组装器
 │   ├── prompt/
 │   │   ├── PromptSegment.java        ← 系统提示词段落枚举
 │   │   ├── BasePromptPlugin.java
 │   │   ├── SkillPromptPlugin.java
-│   │   └── AgentsMdPromptPlugin.java
+│   │   ├── AgentsMdPromptPlugin.java
+│   │   └── SummaryPromptPlugin.java  ← 将摘要注入 system prompt
 │   ├── provider/
 │   │   ├── openai/
 │   │   │   └── OpenAICompatibleProvider.java
@@ -107,6 +116,7 @@ new CapabilityLoader()
 | **AgentsMdPromptPlugin** | 自动读取工作目录下的 `AGENTS.md` 并注入系统提示 |
 | **LoggingHook** | 在 Agent Loop 关键生命周期节点打印调试日志 |
 | **流式输出（后端）** | `LLMProvider.chatStream()` 接口 + SSE 逐字流式传输；`OpenAICompatibleProvider` 实现真实 SSE；支持流式过程中检测并累积 Tool Call |
+| **上下文压缩** | `/compact` 将历史消息压缩为摘要并注入 system prompt；自动压缩（超 80% 阈值时保留最近 2 轮）；支持模型级上下文配置（如 minimax 200k / glm 100k） |
 | **Command System** | 动态 `Command` 接口 + `CommandRegistry`；内置 `/exit`、`/new`、`/compact`、`/model`、`/help`；支持从 `~/.coloop/commands/` 和 `./.coloop/commands/` 扫描用户自定义命令（项目本地命令覆盖用户命令） |
 
 ### 5. 输入拦截器（InputInterceptor）
@@ -117,10 +127,22 @@ new CapabilityLoader()
 - **OpenAICompatibleProvider**：支持任意 OpenAI 兼容 API（如 OpenRouter、自托管 vLLM）。
 
 ### 7. 配置中心
-`AppConfig` 支持从环境变量加载，优先读取 `COLIN_CODE_*` 前缀变量，回退到 `OPENAI_*`：
+`AppConfig` 支持从环境变量或 JSON 配置文件加载，优先读取 `COLIN_CODE_*` 前缀变量，回退到 `OPENAI_*`：
 - `COLIN_CODE_OPENAI_MODEL`
 - `COLIN_CODE_OPENAI_API_KEY`
 - `COLIN_CODE_OPENAI_API_BASE`
+- `COLIN_CODE_MAX_CONTEXT` / `MAX_CONTEXT_SIZE`
+
+上下文大小支持单位后缀：`100k`、`200k`、`1m`，也可直接写数字（如 `8192`）。可在全局或模型级别配置：
+```json
+{
+  "maxContextSize": "100k",
+  "models": {
+    "minimax": { "maxContextSize": "200k" },
+    "glm-4-free": { "maxContextSize": "100k" }
+  }
+}
+```
 
 ---
 
@@ -163,9 +185,9 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
 | **文件系统工具** | ✅ 已实现：`read_file`、`write_file`、`edit_file`、`search_files`、`list_directory` | P0 |
 | **对话历史持久化** | ✅ 已实现：`AgentLoop` 维护跨轮次消息列表 | P0 |
 | **流式输出（后端）** | ✅ 已实现：`LLMProvider.chatStream()` + `OpenAICompatibleProvider` SSE 逐字输出 | P0 |
+| **上下文压缩 / 滑动窗口** | ✅ 已实现：`/compact` 命令 + 自动压缩（80% 阈值）+ TokenEstimator + 模型级上下文配置 | P1 |
 | **计划模式（Plan Mode）** | 无法让 Agent 先制定计划、获得用户确认后再执行，容易”先做后错” | P1 |
 | **并行 Tool Calls** | OpenAI API 支持一次请求返回多个 tool call，但我们目前串行执行 | P1 |
-| **上下文压缩 / 滑动窗口** | 长会话会导致消息列表膨胀，最终超出模型上下文限制 | P1 |
 | **Git 集成** | 无法自动查看 diff、status、生成 commit message、创建分支 | P1 |
 | **Checkpoint / 回滚** | 无法像 Aider 一样对代码变更做快照和撤销 | P2 |
 | **MCP（Model Context Protocol）支持** | 无法接入外部数据源、数据库、文档系统等标准化接口 | P2 |
@@ -259,9 +281,11 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
     - 与 `InputInterceptor` 结合，支持 `/plan` 快捷指令
 13. **并行 Tool Calls**
     - 一轮 LLM 响应中多个 tool call 并行执行，缩短总耗时
-14. **上下文管理**
-    - token 计数估算与自动摘要（`/compact`）
-    - 超长对话时自动丢弃早期非关键消息
+14. **上下文管理** ✅ 已完成
+    - ✅ `/compact` 命令：将历史消息压缩为摘要并注入 system prompt
+    - ✅ 自动压缩：token 占用超 80% 阈值时自动触发，保留最近 2 轮
+    - ✅ TokenEstimator：基于字符数的轻量级 token 估算（中文 1.5 / 非中文 0.25）
+    - ✅ 模型级上下文配置：支持 `maxContextSize` 字段，单位为无单位/`k`/`m`（如 minimax 配 200k，glm 配 100k，默认 100k）
 15. **Git 集成工具**
     - `git_status`、`git_diff`、`git_commit`、`git_branch`
     - 自动在关键操作前查看 diff，防止误改

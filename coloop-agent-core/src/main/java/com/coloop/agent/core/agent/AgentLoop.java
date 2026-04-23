@@ -243,6 +243,7 @@ public class AgentLoop {
                 for (AgentHook h : hooks) {
                     h.onLoopEnd(finalResponse);
                 }
+                messageBuilder.addAssistantMessage(messages, response);
                 return finalResponse;
             }
         }

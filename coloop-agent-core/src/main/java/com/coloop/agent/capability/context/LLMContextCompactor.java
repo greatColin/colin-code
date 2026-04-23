@@ -37,27 +37,19 @@ public class LLMContextCompactor implements ContextCompactor {
             return null;
         }
 
-        List<Map<String, Object>> toSummarize = new ArrayList<>(messages);
-        if (toSummarize.size() <= keepLastN) {
+        if (messages.size() <= keepLastN) {
             return null;
         }
 
-        // 保留最近 keepLastN 条，压缩其余
-        List<Map<String, Object>> retained = new ArrayList<>();
-        while (toSummarize.size() > keepLastN) {
-            retained.add(toSummarize.remove(toSummarize.size() - 1));
-        }
-        // toSummarize 现在是要压缩的部分，retained 是保留的（需要恢复顺序）
-        if (toSummarize.isEmpty()) {
-            return null;
-        }
+        int split = messages.size() - keepLastN;
+        List<Map<String, Object>> toCompress = new ArrayList<>(messages.subList(0, split));
 
         List<Map<String, Object>> request = new ArrayList<>();
         Map<String, Object> sys = new HashMap<>();
         sys.put("role", "system");
         sys.put("content", summaryPrompt);
         request.add(sys);
-        request.addAll(toSummarize);
+        request.addAll(toCompress);
 
         LLMResponse response = provider.chat(request, null, null, null, null);
         String summaryText = response != null && response.getContent() != null
@@ -71,8 +63,8 @@ public class LLMContextCompactor implements ContextCompactor {
         return new ConversationSummary(
                 summaryText,
                 System.currentTimeMillis(),
-                toSummarize.size(),
-                toSummarize.size() / 2
+                toCompress.size(),
+                toCompress.size() / 2
         );
     }
 
