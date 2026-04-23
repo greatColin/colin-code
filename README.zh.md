@@ -80,7 +80,10 @@ com.coloop.agent
 │   │   └── LoggingHook.java
 │   └── command/                ← 命令系统实现
 │       ├── CommandInterceptor.java     ← 命令拦截器（InputInterceptor 实现）
-│       ├── CommandScanner.java         ← 用户自定义命令目录扫描器
+│       ├── CommandScanner.java         ← 用户自定义命令目录扫描器（JSON + Markdown）
+│       ├── MdCommandParser.java        ← 解析 .md 命令定义（YAML frontmatter + 提示词模板）
+│       ├── MdPromptCommand.java        ← Markdown 提示词命令：渲染 $ARGUMENTS 并转发给 LLM
+│       ├── MdCommandDefinition.java    ← 解析后的 markdown 命令元数据记录
 │       ├── ExitCommand.java
 │       ├── NewSessionCommand.java
 │       ├── CompactCommand.java
@@ -117,7 +120,7 @@ new CapabilityLoader()
 | **LoggingHook** | 在 Agent Loop 关键生命周期节点打印调试日志 |
 | **流式输出（后端）** | `LLMProvider.chatStream()` 接口 + SSE 逐字流式传输；`OpenAICompatibleProvider` 实现真实 SSE；支持流式过程中检测并累积 Tool Call |
 | **上下文压缩** | `/compact` 将历史消息压缩为摘要并注入 system prompt；自动压缩（超 80% 阈值时保留最近 2 轮）；支持模型级上下文配置（如 minimax 200k / glm 100k） |
-| **Command System** | 动态 `Command` 接口 + `CommandRegistry`；内置 `/exit`、`/new`、`/compact`、`/model`、`/help`；支持从 `~/.coloop/commands/` 和 `./.coloop/commands/` 扫描用户自定义命令（项目本地命令覆盖用户命令） |
+| **Command System** | 动态 `Command` 接口 + `CommandRegistry`；内置 `/exit`、`/new`、`/compact`、`/model`、`/help`；支持从 `~/.coloop/commands/` 和 `./.coloop/commands/` 扫描用户自定义命令（JSON 定义静态/Shell 命令，**Markdown** 定义提示词模板并支持 `$ARGUMENTS` 插值；项目本地命令覆盖用户命令） |
 
 ### 5. 输入拦截器（InputInterceptor）
 在 LLM 调用前拦截用户输入，可用于实现快捷指令（如 `/compact`）、Skill 系统、权限确认等直接返回功能。
@@ -202,7 +205,7 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
 | **流式输出（前端）** | 后端已支持 SSE，但 `AgentService` 仍调用同步 `chat()`，UI 一次性渲染完整回复 | P0 |
 | **Markdown 渲染** | ✅ 已实现：集成 `marked.js` 渲染粗体、列表、链接、表格、代码块；`<think>` 标签提取为可折叠卡片 | P0 |
 | **代码语法高亮** | ✅ 已实现：集成 `highlight.js`，全部 9 套主题均适配代码块样式 | P0 |
-| **命令系统** | ✅ 已实现：`Command` 接口 + `CommandRegistry` + `CommandInterceptor`；内置 `/exit`、`/new`、`/compact`、`/model`、`/help`；支持从 `~/.coloop/commands/` 和 `./.coloop/commands/` 扫描用户自定义命令 | P1 |
+| **命令系统** | ✅ 已实现：`Command` 接口 + `CommandRegistry` + `CommandInterceptor`；内置 `/exit`、`/new`、`/compact`、`/model`、`/help`；支持从 `~/.coloop/commands/` 和 `./.coloop/commands/` 扫描用户自定义命令（JSON + Markdown 提示词模板，支持 `$ARGUMENTS`） | P1 |
 | **斜杠命令自动补全** | ✅ 已实现：后端在 WebSocket 连接时推送可用命令列表；前端输入 `/` 弹出模糊匹配的命令面板并显示描述；支持键盘上下选择、Enter 确认、Esc 关闭 | P1 |
 | **会话历史侧边栏** | 仅有一个内存会话，刷新页面即丢失，无 localStorage 持久化 | P1 |
 | **模型切换** | `AppConfig` 支持多模型，但用户无法在运行时从 UI 切换 | P1 |
@@ -244,8 +247,9 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
    - ✅ 将硬编码命令（`/new`、`/exit`）从 `AgentService` 和 `AgentLoopThread` 迁移到注册表
    - ✅ 实现 `/compact`、`/model` 等内置命令
    - ✅ 目录扫描加载用户自定义命令（`~/.coloop/commands/`）和项目本地命令（`./.coloop/commands/`，同名时项目本地优先）
+   - ✅ **Markdown 提示词命令**：`.md` 文件支持 YAML frontmatter + `$ARGUMENTS` 插值，执行时渲染并转发给 LLM
    - ✅ 将 `CommandInterceptor` 接入 `InputInterceptor`，使 `CapabilityLoader` 可组装
-   - ✅ 覆盖 86 个单元测试，验证核心接口、所有命令实现、拦截器逻辑、扫描器和运行时集成
+   - ✅ 覆盖 127 个单元测试，验证核心接口、所有命令实现、拦截器逻辑、扫描器和运行时集成
 6. **流式输出（前端）**
    - `AgentHook` 接口新增 `onStreamChunk()`，用于逐 token 流式通知
    - `AgentService` 从 `agentLoop.chat()` 切换到 `agentLoop.chatStream()`

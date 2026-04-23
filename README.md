@@ -80,7 +80,10 @@ com.coloop.agent
 │   │   └── LoggingHook.java
 │   └── command/                ← Command system implementations
 │       ├── CommandInterceptor.java     ← InputInterceptor implementation
-│       ├── CommandScanner.java         ← User-defined command directory scanner
+│       ├── CommandScanner.java         ← User-defined command directory scanner (JSON + Markdown)
+│       ├── MdCommandParser.java        ← Parses .md command definitions (YAML frontmatter + prompt template)
+│       ├── MdPromptCommand.java        ← Markdown prompt command: renders $ARGUMENTS and forwards to LLM
+│       ├── MdCommandDefinition.java    ← Data record for parsed markdown command metadata
 │       ├── ExitCommand.java
 │       ├── NewSessionCommand.java
 │       ├── CompactCommand.java
@@ -117,7 +120,7 @@ new CapabilityLoader()
 | **LoggingHook** | Prints debug logs at key Agent Loop lifecycle nodes |
 | **Streaming (Backend)** | `LLMProvider.chatStream()` interface with SSE word-by-word streaming; `OpenAICompatibleProvider` implements true SSE; tool calls detected and accumulated during the stream |
 | **Context Compression** | `/compact` compresses history into a summary injected into system prompt; auto-compact at 80% threshold keeping last 2 turns; model-level context config (e.g. minimax 200k / glm 100k) |
-| **Command System** | Dynamic `Command` interface + `CommandRegistry`; built-in `/exit`, `/new`, `/compact`, `/model`, `/help`; user-defined command scanning from `~/.coloop/commands/` and `./.coloop/commands/` (project-local overrides user-defined) |
+| **Command System** | Dynamic `Command` interface + `CommandRegistry`; built-in `/exit`, `/new`, `/compact`, `/model`, `/help`; user-defined command scanning from `~/.coloop/commands/` and `./.coloop/commands/` (JSON for static/shell commands, **Markdown** for prompt templates with `$ARGUMENTS` interpolation; project-local overrides user-defined) |
 
 ### 5. Input Interceptor (`InputInterceptor`)
 Intercepts user input before the LLM call. Useful for shortcuts (e.g. `/compact`), skill routing, permission checks, and other direct-return features.
@@ -202,7 +205,7 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
 | **Streaming Output (Frontend)** | Backend supports SSE streaming, but `AgentService` still uses sync `chat()`; UI renders full response at once | P0 |
 | **Markdown Rendering** | ✅ Done: `marked.js` integration renders bold, lists, links, tables, code blocks; `<think>` tags extracted into collapsible cards | P0 |
 | **Code Syntax Highlighting** | ✅ Done: `highlight.js` integration with theme-aware styling across all 9 themes | P0 |
-| **Command System** | ✅ Done: Dynamic `Command` interface + `CommandRegistry`; built-in `/exit`, `/new`, `/compact`, `/model`, `/help`; user-defined command scanning from `~/.coloop/commands/` and `./.coloop/commands/` | P1 |
+| **Command System** | ✅ Done: Dynamic `Command` interface + `CommandRegistry`; built-in `/exit`, `/new`, `/compact`, `/model`, `/help`; user-defined command scanning from `~/.coloop/commands/` and `./.coloop/commands/` (JSON + Markdown with `$ARGUMENTS`) | P1 |
 | **Slash Command Autocomplete** | ✅ Done: Backend pushes available command list on WebSocket connect; frontend pops up fuzzy-matched command palette with descriptions; keyboard navigation supported | P1 |
 | **Session History Sidebar** | Only one in-memory session exists; refreshing the page loses everything; no localStorage persistence | P1 |
 | **Model Switching** | `AppConfig` supports multiple models, but users cannot switch at runtime from the UI | P1 |
@@ -244,8 +247,9 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
    - ✅ Migrate hardcoded commands (`/new`, `/exit`) from `AgentService` and `AgentLoopThread` into the registry
    - ✅ Implement `/compact`, `/model`, and other built-in commands
    - ✅ Directory scanning for user-defined commands (`~/.coloop/commands/`) and project-local commands (`./.coloop/commands/`, overrides user-defined on name conflict)
+   - ✅ **Markdown prompt commands**: `.md` files with YAML frontmatter + `$ARGUMENTS` interpolation, rendered and forwarded to LLM on execution
    - ✅ Wire `CommandInterceptor` into `InputInterceptor` so `CapabilityLoader` can assemble it
-   - ✅ 86 unit tests covering core interfaces, all command implementations, interceptor logic, scanner, and runtime integration
+   - ✅ 127 unit tests covering core interfaces, all command implementations, interceptor logic, scanner, and runtime integration
 6. **Streaming Output (Frontend)**
    - Add `onStreamChunk()` to `AgentHook` interface for per-token streaming notifications
    - Switch `AgentService` from `agentLoop.chat()` to `agentLoop.chatStream()`
