@@ -147,4 +147,57 @@ class CommandScannerTest {
         CommandResult result = registry.get("shared").execute(new CommandContext(new AppConfig()), "");
         assertEquals("from project", result.getMessage());
     }
+
+    @Test
+    void testScanMdCommand(@TempDir Path tempDir) throws IOException {
+        String md = "---\n" +
+                "name: explain\n" +
+                "description: Explain code\n" +
+                "---\n" +
+                "Explain this code: $ARGUMENTS";
+        Files.writeString(tempDir.resolve("explain.md"), md);
+
+        CommandScanner.scanDirectory(tempDir.toString(), registry);
+
+        assertTrue(registry.hasCommand("explain"));
+        Command cmd = registry.get("explain");
+        assertEquals("explain", cmd.getName());
+        assertEquals("Explain code", cmd.getDescription());
+        assertTrue(cmd instanceof MdPromptCommand);
+    }
+
+    @Test
+    void testScanMixedJsonAndMd(@TempDir Path tempDir) throws IOException {
+        Files.writeString(tempDir.resolve("json-cmd.json"),
+                "{\"name\": \"json-cmd\", \"response\": \"from json\"}");
+        Files.writeString(tempDir.resolve("md-cmd.md"),
+                "---\nname: md-cmd\n---\nPrompt body $ARGUMENTS");
+
+        CommandScanner.scanDirectory(tempDir.toString(), registry);
+
+        assertEquals(2, registry.getAll().size());
+        assertTrue(registry.hasCommand("json-cmd"));
+        assertTrue(registry.hasCommand("md-cmd"));
+    }
+
+    @Test
+    void testMdOverridesJsonSameName(@TempDir Path tempDir) throws IOException {
+        Files.writeString(tempDir.resolve("shared.json"),
+                "{\"name\": \"shared\", \"response\": \"from json\"}");
+        Files.writeString(tempDir.resolve("shared.md"),
+                "---\nname: shared\n---\nfrom md");
+
+        CommandScanner.scanDirectory(tempDir.toString(), registry);
+
+        Command cmd = registry.get("shared");
+        assertTrue(cmd instanceof MdPromptCommand, "MD command should override JSON");
+    }
+
+    @Test
+    void testScanInvalidMdSkipped(@TempDir Path tempDir) throws IOException {
+        Files.writeString(tempDir.resolve("bad.md"), "---\n");
+
+        assertDoesNotThrow(() -> CommandScanner.scanDirectory(tempDir.toString(), registry));
+        assertTrue(registry.hasCommand("bad"));
+    }
 }

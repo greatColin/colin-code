@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.stream.Stream;
 
 /**
@@ -53,7 +54,7 @@ public class CommandScanner {
     }
 
     /**
-     * 扫描指定目录下的 JSON 命令定义文件。
+     * 扫描指定目录下的 JSON 和 Markdown 命令定义文件。
      *
      * @param dirPath 目录路径
      * @param registry 要注册到的命令注册表
@@ -65,8 +66,11 @@ public class CommandScanner {
         }
 
         try (Stream<Path> stream = Files.list(path)) {
-            stream.filter(p -> p.toString().endsWith(".json"))
+            List<Path> files = stream.toList();
+            files.stream().filter(p -> p.toString().endsWith(".json"))
                   .forEach(p -> loadJsonCommand(p, registry));
+            files.stream().filter(p -> p.toString().endsWith(".md"))
+                  .forEach(p -> loadMdCommand(p, registry));
         } catch (IOException e) {
             System.err.println("Failed to scan commands directory " + dirPath + ": " + e.getMessage());
         }
@@ -86,6 +90,19 @@ public class CommandScanner {
             String exec = node.has("exec") ? node.get("exec").asText() : null;
 
             registry.register(new JsonDefinedCommand(name, description, response, exec));
+        } catch (IOException e) {
+            System.err.println("Failed to load command from " + path + ": " + e.getMessage());
+        }
+    }
+
+    private static void loadMdCommand(Path path, CommandRegistry registry) {
+        try {
+            MdCommandDefinition def = MdCommandParser.parse(path);
+            if (def.name() == null || def.name().isEmpty()) {
+                System.err.println("Command definition missing 'name' in " + path);
+                return;
+            }
+            registry.register(new MdPromptCommand(def.name(), def.description(), def.promptTemplate()));
         } catch (IOException e) {
             System.err.println("Failed to load command from " + path + ": " + e.getMessage());
         }
