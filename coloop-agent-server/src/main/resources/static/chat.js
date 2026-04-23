@@ -253,6 +253,22 @@
     }
 
     function renderLoopStart(attempt) {
+        // 新循环开始，重置当前 assistant 元素
+        // 防止上一轮未完成的流式内容被追加到错误的循环中
+        if (currentAssistantEl) {
+            if (streamBuffer) {
+                renderStreamBuffer();
+            }
+            var cursor = currentAssistantEl.querySelector('.stream-cursor');
+            if (cursor) cursor.remove();
+            currentAssistantEl = null;
+            streamBuffer = '';
+        }
+        if (streamRenderTimer) {
+            clearTimeout(streamRenderTimer);
+            streamRenderTimer = null;
+        }
+
         const el = document.createElement('div');
         el.className = 'message loop-start';
         el.textContent = '▶ Attempt ' + attempt + '...';
