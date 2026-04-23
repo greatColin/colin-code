@@ -43,7 +43,7 @@ public class ModelCommand implements Command {
                 AppConfig.ModelConfig mc = models.get(target);
                 return CommandResult.success(
                         "Model '" + target + "' selected (" + mc.getModel() + ").\n" +
-                        "Note: full model switching requires a new session (/new-session)."
+                        "Note: full model switching requires a new session (/new)."
                 );
             }
             return CommandResult.success("Unknown model: '" + target + "'. Available: " + String.join(", ", models.keySet()));

@@ -3,10 +3,13 @@
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
     const statusEl = document.getElementById('connection-status');
+    const commandSuggestionsEl = document.getElementById('command-suggestions');
 
     const wsUrl = 'ws://' + window.location.host + '/ws/agent';
     let ws = null;
     let reconnectTimer = null;
+    let availableCommands = [];
+    let selectedSuggestionIndex = -1;
 
     function connect() {
         updateStatus('connecting', '连接中...');
@@ -76,6 +79,9 @@
                 break;
             case 'error':
                 renderError(msg.payload.message);
+                break;
+            case 'commands':
+                availableCommands = msg.payload.commands || [];
                 break;
         }
         scrollToBottom();
@@ -206,16 +212,140 @@
 
         ws.send(JSON.stringify({ action: 'chat', message: text }));
         messageInput.value = '';
+        hideSuggestions();
     }
 
     sendBtn.addEventListener('click', sendMessage);
 
     messageInput.addEventListener('keydown', function(e) {
+        if (commandSuggestionsEl.classList.contains('active')) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                selectedSuggestionIndex++;
+                updateSelection();
+                return;
+            }
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                selectedSuggestionIndex--;
+                updateSelection();
+                return;
+            }
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                applySelectedSuggestion();
+                return;
+            }
+            if (e.key === 'Escape') {
+                hideSuggestions();
+                return;
+            }
+        }
+
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             sendMessage();
         }
     });
+
+    messageInput.addEventListener('input', function() {
+        const text = messageInput.value;
+        if (text.startsWith('/')) {
+            const filter = text.substring(1).toLowerCase();
+            showSuggestions(filter);
+        } else {
+            hideSuggestions();
+        }
+    });
+
+    messageInput.addEventListener('blur', function() {
+        // Delay hiding to allow click on suggestion
+        setTimeout(hideSuggestions, 200);
+    });
+
+    function showSuggestions(filter) {
+        if (!availableCommands.length) return;
+
+        const filtered = availableCommands.filter(function(cmd) {
+            return cmd.name.toLowerCase().indexOf(filter) !== -1 ||
+                   (cmd.description || '').toLowerCase().indexOf(filter) !== -1;
+        });
+
+        if (!filtered.length) {
+            hideSuggestions();
+            return;
+        }
+
+        commandSuggestionsEl.innerHTML = '';
+        selectedSuggestionIndex = 0;
+
+        filtered.forEach(function(cmd, index) {
+            const item = document.createElement('div');
+            item.className = 'command-suggestion-item';
+            item.dataset.index = index;
+            item.dataset.name = cmd.name;
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'command-suggestion-name';
+            nameSpan.textContent = '/' + cmd.name;
+
+            const descSpan = document.createElement('span');
+            descSpan.className = 'command-suggestion-desc';
+            descSpan.textContent = cmd.description || '';
+
+            item.appendChild(nameSpan);
+            item.appendChild(descSpan);
+
+            item.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                messageInput.value = '/' + cmd.name + ' ';
+                messageInput.focus();
+                hideSuggestions();
+            });
+
+            commandSuggestionsEl.appendChild(item);
+        });
+
+        commandSuggestionsEl.classList.add('active');
+        updateSelection();
+    }
+
+    function hideSuggestions() {
+        commandSuggestionsEl.classList.remove('active');
+        commandSuggestionsEl.innerHTML = '';
+        selectedSuggestionIndex = -1;
+    }
+
+    function updateSelection() {
+        const items = commandSuggestionsEl.querySelectorAll('.command-suggestion-item');
+        if (!items.length) return;
+
+        if (selectedSuggestionIndex < 0) {
+            selectedSuggestionIndex = items.length - 1;
+        }
+        if (selectedSuggestionIndex >= items.length) {
+            selectedSuggestionIndex = 0;
+        }
+
+        items.forEach(function(item, idx) {
+            if (idx === selectedSuggestionIndex) {
+                item.classList.add('selected');
+                item.scrollIntoView({ block: 'nearest' });
+            } else {
+                item.classList.remove('selected');
+            }
+        });
+    }
+
+    function applySelectedSuggestion() {
+        const items = commandSuggestionsEl.querySelectorAll('.command-suggestion-item');
+        if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < items.length) {
+            const name = items[selectedSuggestionIndex].dataset.name;
+            messageInput.value = '/' + name + ' ';
+        }
+        hideSuggestions();
+        messageInput.focus();
+    }
 
     // Start connection
     connect();

@@ -7,7 +7,7 @@ import com.coloop.agent.core.command.CommandResult;
 /**
  * 压缩命令：/compact — 清空当前消息历史，释放上下文窗口。
  *
- * <p>当前实现为直接重置会话（与 /new-session 行为一致）。
+ * <p>当前实现为直接重置会话（与 /new 行为一致）。
  * 未来可升级为摘要保留：将历史消息压缩为摘要后再注入系统提示。</p>
  */
 public class CompactCommand implements Command {

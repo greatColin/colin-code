@@ -14,7 +14,7 @@ class NewSessionCommandTest {
 
     @Test
     void testGetName() {
-        assertEquals("new-session", command.getName());
+        assertEquals("new", command.getName());
     }
 
     @Test

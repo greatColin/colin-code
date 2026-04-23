@@ -3,6 +3,7 @@ package com.coloop.agent.server.dto;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -73,6 +74,12 @@ public class WebSocketMessage {
         Map<String, Object> payload = new HashMap<>();
         payload.put("message", message);
         return new WebSocketMessage("error", payload);
+    }
+
+    public static WebSocketMessage commands(List<Map<String, String>> commands) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("commands", commands);
+        return new WebSocketMessage("commands", payload);
     }
 
     public String getType() {

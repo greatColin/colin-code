@@ -35,12 +35,21 @@ public class CommandScanner {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String DEFAULT_COMMANDS_DIR = System.getProperty("user.home") + "/.coloop/commands";
+    private static final String PROJECT_COMMANDS_DIR = System.getProperty("user.dir") + "/.coloop/commands";
 
     /**
      * 扫描默认用户命令目录（{@code ~/.coloop/commands/}）。
      */
     public static void scanUserCommands(CommandRegistry registry) {
         scanDirectory(DEFAULT_COMMANDS_DIR, registry);
+    }
+
+    /**
+     * 扫描当前项目命令目录（{@code ./.coloop/commands/}）。
+     * <p>同名命令以项目本地定义为准（后注册覆盖先注册）。</p>
+     */
+    public static void scanProjectCommands(CommandRegistry registry) {
+        scanDirectory(PROJECT_COMMANDS_DIR, registry);
     }
 
     /**

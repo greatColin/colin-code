@@ -12,6 +12,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -116,5 +117,34 @@ class CommandScannerTest {
     void testScanDefaultUserCommandsDoesNotCrash() {
         // 默认 ~/.coloop/commands 通常不存在，不应崩溃
         assertDoesNotThrow(() -> CommandScanner.scanUserCommands(registry));
+    }
+
+    @Test
+    void testScanProjectCommandsDoesNotCrash() {
+        // 默认 ./.coloop/commands 通常不存在，不应崩溃
+        assertDoesNotThrow(() -> CommandScanner.scanProjectCommands(registry));
+        assertTrue(registry.getAll().isEmpty());
+    }
+
+    @Test
+    void testProjectCommandsOverrideUserCommands(@TempDir Path tempDir) throws IOException {
+        // 用 scanDirectory 模拟用户目录和项目目录的覆盖关系
+        Path mockUserDir = tempDir.resolve("user-commands");
+        Files.createDirectories(mockUserDir);
+        Files.writeString(mockUserDir.resolve("shared.json"),
+                "{\"name\": \"shared\", \"response\": \"from user\"}");
+
+        Path projectDir = tempDir.resolve("project-commands");
+        Files.createDirectories(projectDir);
+        Files.writeString(projectDir.resolve("shared.json"),
+                "{\"name\": \"shared\", \"response\": \"from project\"}");
+
+        // 先扫用户目录
+        CommandScanner.scanDirectory(mockUserDir.toString(), registry);
+        // 再扫项目目录（同名覆盖）
+        CommandScanner.scanDirectory(projectDir.toString(), registry);
+
+        CommandResult result = registry.get("shared").execute(new CommandContext(new AppConfig()), "");
+        assertEquals("from project", result.getMessage());
     }
 }

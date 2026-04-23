@@ -23,6 +23,7 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         System.out.println("[WebSocket] Connected: " + session.getId());
+        agentService.sendAvailableCommands(session);
     }
 
     @Override

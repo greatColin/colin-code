@@ -5,7 +5,7 @@ import com.coloop.agent.core.command.CommandContext;
 import com.coloop.agent.core.command.CommandResult;
 
 /**
- * 新会话命令：/new-session — 重置当前会话上下文。
+ * 新会话命令：/new — 重置当前会话上下文。
  *
  * <p>调用 {@link CommandContext#getAgentLoop()}#reset() 清空消息历史。
  * 对于需要完全重建 AgentLoop 的运行时（如 WebSocket），可通过
@@ -16,7 +16,7 @@ public class NewSessionCommand implements Command {
 
     @Override
     public String getName() {
-        return "new-session";
+        return "new";
     }
 
     @Override

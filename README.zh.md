@@ -105,7 +105,7 @@ new CapabilityLoader()
 | **SkillPromptPlugin** | 扫描并注入可用技能说明到系统提示 |
 | **AgentsMdPromptPlugin** | 自动读取工作目录下的 `AGENTS.md` 并注入系统提示 |
 | **LoggingHook** | 在 Agent Loop 关键生命周期节点打印调试日志 |
-| **Command System** | 动态 `Command` 接口 + `CommandRegistry`；内置 `/exit`、`/new-session`、`/compact`、`/model`、`/help`；支持从 `~/.coloop/commands/` 扫描用户自定义命令 |
+| **Command System** | 动态 `Command` 接口 + `CommandRegistry`；内置 `/exit`、`/new`、`/compact`、`/model`、`/help`；支持从 `~/.coloop/commands/` 和 `./.coloop/commands/` 扫描用户自定义命令（项目本地命令覆盖用户命令） |
 
 ### 5. 输入拦截器（InputInterceptor）
 在 LLM 调用前拦截用户输入，可用于实现快捷指令（如 `/compact`）、Skill 系统、权限确认等直接返回功能。
@@ -177,8 +177,8 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
 | **流式输出（前端）** | 后端已支持 SSE，但 `AgentService` 仍调用同步 `chat()`，UI 一次性渲染完整回复 | P0 |
 | **Markdown 渲染** | AI 回复是纯文本，未渲染粗体、列表、链接、表格、代码块等 | P0 |
 | **代码语法高亮** | 助手回复和工具结果中的代码片段无高亮 | P0 |
-| **命令系统** | ✅ 已实现：`Command` 接口 + `CommandRegistry` + `CommandInterceptor`；内置命令动态注册；支持用户自定义命令扫描 | P1 |
-| **斜杠命令自动补全** | 输入 `/` 无反应，用户必须死记硬背命令 | P1 |
+| **命令系统** | ✅ 已实现：`Command` 接口 + `CommandRegistry` + `CommandInterceptor`；内置 `/exit`、`/new`、`/compact`、`/model`、`/help`；支持从 `~/.coloop/commands/` 和 `./.coloop/commands/` 扫描用户自定义命令 | P1 |
+| **斜杠命令自动补全** | ✅ 已实现：后端在 WebSocket 连接时推送可用命令列表；前端输入 `/` 弹出模糊匹配的命令面板并显示描述；支持键盘上下选择、Enter 确认、Esc 关闭 | P1 |
 | **会话历史侧边栏** | 仅有一个内存会话，刷新页面即丢失，无 localStorage 持久化 | P1 |
 | **模型切换** | `AppConfig` 支持多模型，但用户无法在运行时从 UI 切换 | P1 |
 | **消息操作** | 聊天气泡上无复制、重新生成、编辑消息等操作 | P1 |
@@ -216,9 +216,9 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
 ### 阶段二：前端基础 + 命令系统（当前重点）
 5. **命令系统重构** ✅ 已完成
    - ✅ 定义 `Command` 接口 + `CommandRegistry` 动态注册
-   - ✅ 将硬编码命令（`/new-session`、`/exit`）从 `AgentService` 和 `AgentLoopThread` 迁移到注册表
+   - ✅ 将硬编码命令（`/new`、`/exit`）从 `AgentService` 和 `AgentLoopThread` 迁移到注册表
    - ✅ 实现 `/compact`、`/model` 等内置命令
-   - ✅ 目录扫描加载用户自定义命令（如 `~/.coloop/commands/`）
+   - ✅ 目录扫描加载用户自定义命令（`~/.coloop/commands/`）和项目本地命令（`./.coloop/commands/`，同名时项目本地优先）
    - ✅ 将 `CommandInterceptor` 接入 `InputInterceptor`，使 `CapabilityLoader` 可组装
    - ✅ 覆盖 86 个单元测试，验证核心接口、所有命令实现、拦截器逻辑、扫描器和运行时集成
 6. **流式输出（前端）**
@@ -230,10 +230,10 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
    - 引入 `highlight.js` 做代码块语法高亮
    - 对渲染的 HTML 做 XSS 过滤
    - 所有 9 套主题补充代码块样式
-8. **斜杠命令自动补全**
-   - 后端在 WebSocket 连接时推送可用命令列表
-   - 前端输入 `/` 弹出命令面板，显示描述
-   - 键盘导航（方向键、Enter、Esc）
+8. **斜杠命令自动补全** ✅ 已完成
+   - ✅ 后端在 WebSocket 连接时推送可用命令列表
+   - ✅ 前端输入 `/` 弹出模糊匹配的命令面板，显示描述
+   - ✅ 键盘导航（方向键、Enter、Esc）
 9. **模型切换**
    - 后端在 WebSocket 连接时暴露可用模型
    - 前端在主题切换器旁添加模型下拉框

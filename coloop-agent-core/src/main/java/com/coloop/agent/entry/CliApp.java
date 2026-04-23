@@ -39,6 +39,7 @@ public class CliApp {
         cmdRegistry.register(new ModelCommand());
         cmdRegistry.register(new HelpCommand(cmdRegistry));
         CommandScanner.scanUserCommands(cmdRegistry);
+        CommandScanner.scanProjectCommands(cmdRegistry);
 
         CommandContext cmdCtx = new CommandContext(config);
         CommandInterceptor cmdInterceptor = new CommandInterceptor(cmdRegistry, cmdCtx);

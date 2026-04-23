@@ -16,6 +16,7 @@ import com.coloop.agent.core.provider.LLMProvider;
 import com.coloop.agent.runtime.CapabilityLoader;
 import com.coloop.agent.runtime.StandardCapability;
 import com.coloop.agent.runtime.config.AppConfig;
+import com.coloop.agent.core.command.Command;
 import com.coloop.agent.server.hook.WebSocketLoggingHook;
 import com.coloop.agent.server.dto.WebSocketMessage;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,6 +24,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -74,6 +79,7 @@ public class AgentService {
                         cmdRegistry.register(new ModelCommand());
                         cmdRegistry.register(new HelpCommand(cmdRegistry));
                         CommandScanner.scanUserCommands(cmdRegistry);
+                        CommandScanner.scanProjectCommands(cmdRegistry);
 
                         CommandContext cmdCtx = new CommandContext(config, null);
                         cmdCtx.setAttribute("session", session);
@@ -124,6 +130,36 @@ public class AgentService {
 
     public void removeSession(String sessionId) {
         sessions.remove(sessionId);
+    }
+
+    /**
+     * 发送可用命令列表到前端（WebSocket 连接建立时调用）。
+     */
+    public void sendAvailableCommands(WebSocketSession session) {
+        CommandRegistry listRegistry = new CommandRegistry();
+        listRegistry.register(new ExitCommand());
+        listRegistry.register(new NewSessionCommand());
+        listRegistry.register(new CompactCommand());
+        listRegistry.register(new ModelCommand());
+        listRegistry.register(new HelpCommand(listRegistry));
+        CommandScanner.scanUserCommands(listRegistry);
+        CommandScanner.scanProjectCommands(listRegistry);
+
+        List<Map<String, String>> commands = new ArrayList<>();
+        for (Command cmd : listRegistry.getAll()) {
+            Map<String, String> entry = new HashMap<>();
+            entry.put("name", cmd.getName());
+            entry.put("description", cmd.getDescription());
+            commands.add(entry);
+        }
+
+        try {
+            WebSocketMessage msg = WebSocketMessage.commands(commands);
+            String json = objectMapper.writeValueAsString(msg);
+            session.sendMessage(new TextMessage(json));
+        } catch (Exception e) {
+            System.err.println("Failed to send command list: " + e.getMessage());
+        }
     }
 
     private void sendError(WebSocketSession session, String message) {

@@ -105,7 +105,7 @@ new CapabilityLoader()
 | **SkillPromptPlugin** | Scans and injects available skill descriptions into the system prompt |
 | **AgentsMdPromptPlugin** | Auto-reads `AGENTS.md` from the working directory and injects it |
 | **LoggingHook** | Prints debug logs at key Agent Loop lifecycle nodes |
-| **Command System** | Dynamic `Command` interface + `CommandRegistry`; built-in `/exit`, `/new-session`, `/compact`, `/model`, `/help`; user-defined command scanning from `~/.coloop/commands/` |
+| **Command System** | Dynamic `Command` interface + `CommandRegistry`; built-in `/exit`, `/new`, `/compact`, `/model`, `/help`; user-defined command scanning from `~/.coloop/commands/` and `./.coloop/commands/` (project-local overrides user-defined) |
 
 ### 5. Input Interceptor (`InputInterceptor`)
 Intercepts user input before the LLM call. Useful for shortcuts (e.g. `/compact`), skill routing, permission checks, and other direct-return features.
@@ -177,8 +177,8 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
 | **Streaming Output (Frontend)** | Backend supports SSE streaming, but `AgentService` still uses sync `chat()`; UI renders full response at once | P0 |
 | **Markdown Rendering** | AI responses are raw text; no bold, lists, links, tables, or code blocks rendered | P0 |
 | **Code Syntax Highlighting** | Code snippets in assistant replies and tool results have no highlighting | P0 |
-| **Command System** | ✅ Done: Dynamic `Command` interface + `CommandRegistry`; built-in `/exit`, `/new-session`, `/compact`, `/model`, `/help`; user-defined command scanning from `~/.coloop/commands/` | P1 |
-| **Slash Command Autocomplete** | Typing `/` shows nothing; users must memorize commands | P1 |
+| **Command System** | ✅ Done: Dynamic `Command` interface + `CommandRegistry`; built-in `/exit`, `/new`, `/compact`, `/model`, `/help`; user-defined command scanning from `~/.coloop/commands/` and `./.coloop/commands/` | P1 |
+| **Slash Command Autocomplete** | ✅ Done: Backend pushes available command list on WebSocket connect; frontend pops up fuzzy-matched command palette with descriptions; keyboard navigation supported | P1 |
 | **Session History Sidebar** | Only one in-memory session exists; refreshing the page loses everything; no localStorage persistence | P1 |
 | **Model Switching** | `AppConfig` supports multiple models, but users cannot switch at runtime from the UI | P1 |
 | **Message Actions** | No copy, regenerate, or edit-message capabilities on chat bubbles | P1 |
@@ -216,9 +216,9 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
 ### Phase 2: Frontend Foundation + Command System (Current Focus)
 5. **Command System Refactor** ✅ Done
    - ✅ Define `Command` interface + `CommandRegistry` for dynamic registration
-   - ✅ Migrate hardcoded commands (`/new-session`, `/exit`) from `AgentService` and `AgentLoopThread` into the registry
+   - ✅ Migrate hardcoded commands (`/new`, `/exit`) from `AgentService` and `AgentLoopThread` into the registry
    - ✅ Implement `/compact`, `/model`, and other built-in commands
-   - ✅ Directory scanning for user-defined commands (e.g. `~/.coloop/commands/`)
+   - ✅ Directory scanning for user-defined commands (`~/.coloop/commands/`) and project-local commands (`./.coloop/commands/`, overrides user-defined on name conflict)
    - ✅ Wire `CommandInterceptor` into `InputInterceptor` so `CapabilityLoader` can assemble it
    - ✅ 86 unit tests covering core interfaces, all command implementations, interceptor logic, scanner, and runtime integration
 6. **Streaming Output (Frontend)**
@@ -230,10 +230,10 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
    - Integrate `highlight.js` for code block syntax highlighting
    - XSS sanitization for rendered HTML
    - Theme-aware code block styling in all 9 themes
-8. **Slash Command Autocomplete**
-   - Backend pushes available command list on WebSocket connect
-   - Frontend: typing `/` pops up a command palette with descriptions
-   - Keyboard navigation (arrow keys, Enter, Esc)
+8. **Slash Command Autocomplete** ✅ Done
+   - ✅ Backend pushes available command list on WebSocket connect
+   - ✅ Frontend: typing `/` pops up a fuzzy-matched command palette with descriptions
+   - ✅ Keyboard navigation (arrow keys, Enter, Esc)
 9. **Model Switching**
    - Backend exposes available models via WebSocket on connect
    - Frontend dropdown next to the theme switcher
