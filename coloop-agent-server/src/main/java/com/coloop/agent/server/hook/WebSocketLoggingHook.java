@@ -71,6 +71,11 @@ public class WebSocketLoggingHook implements AgentHook {
         send(WebSocketMessage.user(message));
     }
 
+    @Override
+    public void onStreamChunk(String chunk) {
+        send(WebSocketMessage.streamChunk(chunk));
+    }
+
     private void send(WebSocketMessage msg) {
         if (!session.isOpen()) {
             return;
