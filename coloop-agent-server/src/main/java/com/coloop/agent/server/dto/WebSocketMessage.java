@@ -58,6 +58,12 @@ public class WebSocketMessage {
         return new WebSocketMessage("tool_result", payload);
     }
 
+    public static WebSocketMessage streamChunk(String chunk) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("content", chunk);
+        return new WebSocketMessage("stream_chunk", payload);
+    }
+
     public static WebSocketMessage assistant(String content) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("content", content);
