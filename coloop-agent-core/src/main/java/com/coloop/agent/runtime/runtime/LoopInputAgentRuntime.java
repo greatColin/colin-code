@@ -23,19 +23,21 @@ public class LoopInputAgentRuntime {
         agentThread.start();
         Scanner scanner = new Scanner(System.in);
         try {
-            while (agentThread.isRunning()) {
+            while (true) {
+                if (!agentThread.isRunning()) {
+                    break;
+                }
                 System.out.print("question: ");
                 String input = scanner.nextLine().trim();
                 if (input.isEmpty()) {
                     continue;
                 }
-                if ("/exit".equals(input)) {
-                    agentThread.submit("/exit");
-                    break;
-                }
                 agentThread.submit(input);
                 // 阻塞等待本次结果（中间状态通过 AgentHook 输出）
                 agentThread.takeResult();
+                if (!agentThread.isRunning()) {
+                    break;
+                }
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -44,5 +46,15 @@ public class LoopInputAgentRuntime {
             scanner.close();
         }
         return "";
+    }
+
+    /** 停止输入循环和底层线程。 */
+    public void stop() {
+        agentThread.stop();
+    }
+
+    /** 获取底层 AgentLoopThread（用于命令系统的终止回调）。 */
+    public AgentLoopThread getAgentThread() {
+        return agentThread;
     }
 }

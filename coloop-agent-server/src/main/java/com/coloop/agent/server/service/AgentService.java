@@ -1,7 +1,17 @@
 package com.coloop.agent.server.service;
 
+import com.coloop.agent.capability.command.CommandInterceptor;
+import com.coloop.agent.capability.command.CommandScanner;
+import com.coloop.agent.capability.command.CompactCommand;
+import com.coloop.agent.capability.command.ExitCommand;
+import com.coloop.agent.capability.command.HelpCommand;
+import com.coloop.agent.capability.command.ModelCommand;
+import com.coloop.agent.capability.command.NewSessionCommand;
 import com.coloop.agent.capability.provider.openai.OpenAICompatibleProvider;
 import com.coloop.agent.core.agent.AgentLoop;
+import com.coloop.agent.core.command.CommandContext;
+import com.coloop.agent.core.command.CommandRegistry;
+import com.coloop.agent.core.command.CommandExitException;
 import com.coloop.agent.core.provider.LLMProvider;
 import com.coloop.agent.runtime.CapabilityLoader;
 import com.coloop.agent.runtime.StandardCapability;
@@ -34,24 +44,13 @@ public class AgentService {
 
         String trimmed = userMessage.trim();
 
-        // 处理 /new-session 命令
-        if ("/new-session".equals(trimmed)) {
-            synchronized (ctx) {
-                if (ctx.isRunning) {
-                    sendSystem(session, "A task is currently running. Please wait for it to complete before starting a new session.");
-                    return;
-                }
-                if (ctx.agentLoop != null) {
-                    ctx.agentLoop.reset();
-                }
-                ctx.agentLoop = null;
-                sendSystem(session, "New session started. Previous context cleared.");
-                return;
-            }
-        }
-
         synchronized (ctx) {
             if (ctx.isRunning && ctx.agentLoop != null) {
+                // 任务运行时拒绝命令（斜杠开头），普通消息注入当前循环
+                if (trimmed.startsWith("/")) {
+                    sendSystem(session, "A task is currently running. Please wait for it to complete before executing commands.");
+                    return;
+                }
                 ctx.agentLoop.injectUserMessage(userMessage);
                 return;
             }
@@ -67,6 +66,25 @@ public class AgentService {
                         LLMProvider provider = new OpenAICompatibleProvider(config.getDefaultModelConfig());
                         WebSocketLoggingHook hook = new WebSocketLoggingHook(session);
 
+                        // 组装命令系统
+                        CommandRegistry cmdRegistry = new CommandRegistry();
+                        cmdRegistry.register(new ExitCommand());
+                        cmdRegistry.register(new NewSessionCommand());
+                        cmdRegistry.register(new CompactCommand());
+                        cmdRegistry.register(new ModelCommand());
+                        cmdRegistry.register(new HelpCommand(cmdRegistry));
+                        CommandScanner.scanUserCommands(cmdRegistry);
+
+                        CommandContext cmdCtx = new CommandContext(config, null);
+                        cmdCtx.setAttribute("session", session);
+                        cmdCtx.setAttribute("resetSession", (Runnable) () -> {
+                            synchronized (ctx) {
+                                ctx.agentLoop = null;
+                            }
+                        });
+
+                        CommandInterceptor cmdInterceptor = new CommandInterceptor(cmdRegistry, cmdCtx);
+
                         agentLoop = new CapabilityLoader()
                                 .withCapability(StandardCapability.EXEC_TOOL, config)
                                 .withCapability(StandardCapability.READ_FILE_TOOL, config)
@@ -78,8 +96,10 @@ public class AgentService {
                                 .withCapability(StandardCapability.AGENTS_MD_PROMPT, config)
                                 .withCapability(StandardCapability.LOGGING_HOOK, config)
                                 .withHook(hook)
+                                .withInterceptor(cmdInterceptor)
                                 .build(provider, config);
 
+                        cmdCtx.setAgentLoop(agentLoop);
                         ctx.agentLoop = agentLoop;
                     } else {
                         agentLoop = ctx.agentLoop;
@@ -87,6 +107,11 @@ public class AgentService {
                 }
 
                 agentLoop.chat(userMessage);
+            } catch (CommandExitException e) {
+                sendSystem(session, e.getExitMessage());
+                synchronized (ctx) {
+                    ctx.agentLoop = null;
+                }
             } catch (Exception e) {
                 sendError(session, e.getMessage());
             } finally {

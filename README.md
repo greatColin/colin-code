@@ -162,7 +162,7 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
 | **Streaming Output (Frontend)** | Backend supports SSE streaming, but `AgentService` still uses sync `chat()`; UI renders full response at once | P0 |
 | **Markdown Rendering** | AI responses are raw text; no bold, lists, links, tables, or code blocks rendered | P0 |
 | **Code Syntax Highlighting** | Code snippets in assistant replies and tool results have no highlighting | P0 |
-| **Command System** | `/new-session` is hardcoded in `AgentService`; `InputInterceptor` has no implementations registered; no dynamic command registry | P1 |
+| **Command System** | ✅ Done: Dynamic `Command` interface + `CommandRegistry`; built-in `/exit`, `/new-session`, `/compact`, `/model`, `/help`; user-defined command scanning from `~/.coloop/commands/` | P1 |
 | **Slash Command Autocomplete** | Typing `/` shows nothing; users must memorize commands | P1 |
 | **Session History Sidebar** | Only one in-memory session exists; refreshing the page loses everything; no localStorage persistence | P1 |
 | **Model Switching** | `AppConfig` supports multiple models, but users cannot switch at runtime from the UI | P1 |
@@ -199,12 +199,12 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
    - Auto-reconnect and connection status indicator
 
 ### Phase 2: Frontend Foundation + Command System (Current Focus)
-5. **Command System Refactor**
-   - Define `Command` interface + `CommandRegistry` for dynamic registration
-   - Migrate hardcoded commands (`/new-session`, `/exit`) from `AgentService` and `AgentLoopThread` into the registry
-   - Implement `/compact`, `/model`, and other built-in commands
-   - Directory scanning for user-defined commands (e.g. `~/.coloop/commands/`)
-   - Wire `CommandInterceptor` into `InputInterceptor` so `CapabilityLoader` can assemble it
+5. **Command System Refactor** ✅ Done
+   - ✅ Define `Command` interface + `CommandRegistry` for dynamic registration
+   - ✅ Migrate hardcoded commands (`/new-session`, `/exit`) from `AgentService` and `AgentLoopThread` into the registry
+   - ✅ Implement `/compact`, `/model`, and other built-in commands
+   - ✅ Directory scanning for user-defined commands (e.g. `~/.coloop/commands/`)
+   - ✅ Wire `CommandInterceptor` into `InputInterceptor` so `CapabilityLoader` can assemble it
 6. **Streaming Output (Frontend)**
    - Switch `AgentService` from `agentLoop.chat()` to `agentLoop.chatStream()`
    - Extend `WebSocketLoggingHook` with `onStreamChunk()` to push SSE fragments to the browser

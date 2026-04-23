@@ -1,5 +1,7 @@
 package com.coloop.agent.core.agent;
 
+import com.coloop.agent.core.command.CommandExitException;
+
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -116,20 +118,13 @@ public class AgentLoopThread {
         while (running && !Thread.interrupted()) {
             String input = inputQueue.take();
 
-            if ("/exit".equals(input)) {
-                resultQueue.offer("Exited");
-                running = false;
-                break;
-            }
-            if ("/new-session".equals(input)) {
-                agentLoop.reset();
-                resultQueue.offer("Session reset");
-                continue;
-            }
-
             try {
                 String result = agentLoop.chat(input);
                 resultQueue.offer(result);
+            } catch (CommandExitException e) {
+                resultQueue.offer(e.getExitMessage());
+                running = false;
+                break;
             } catch (Exception e) {
                 resultQueue.offer("Error: " + e.getMessage());
             }
