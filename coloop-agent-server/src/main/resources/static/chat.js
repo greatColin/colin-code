@@ -151,6 +151,9 @@
             case 'error':
                 renderError(msg.payload.message);
                 break;
+            case 'context_usage':
+                updateContextBar(msg.payload);
+                break;
             case 'commands':
                 availableCommands = (msg.payload && msg.payload.commands) || [];
                 console.log('[Commands] Loaded', availableCommands.length, 'commands:', availableCommands.map(function(c) { return c.name; }));
@@ -161,6 +164,14 @@
 
     function appendElement(el) {
         chatContainer.appendChild(el);
+    }
+
+    function insertBeforeAssistant(el) {
+        if (currentAssistantEl && currentAssistantEl.parentNode === chatContainer) {
+            chatContainer.insertBefore(el, currentAssistantEl);
+        } else {
+            chatContainer.appendChild(el);
+        }
     }
 
     function scrollToBottom() {
@@ -221,7 +232,7 @@
 
         // Render think content as a thinking card (if any)
         if (extracted.thinkContent) {
-            renderCard('thinking', '💭 Thinking', extracted.thinkContent);
+            renderCardBeforeAssistant('thinking', '💭 Thinking', extracted.thinkContent);
         }
 
         if (currentAssistantEl) {
@@ -270,7 +281,7 @@
         if (payload.content) {
             content += '[THINK]\n' + payload.content;
         }
-        renderCard('thinking', '💭 Thinking', content);
+        renderCardBeforeAssistant('thinking', '💭 Thinking', content);
     }
 
     function renderToolCall(payload) {
@@ -280,14 +291,14 @@
         } else if (payload.args) {
             content += 'Args:\n' + payload.args;
         }
-        renderCard('tool-call', '🔧 ' + payload.name, content);
+        renderCardBeforeAssistant('tool-call', '🔧 ' + payload.name, content);
     }
 
     function renderToolResult(payload) {
-        renderCard('tool-result', '✅ Result: ' + payload.name, payload.result || '');
+        renderCardBeforeAssistant('tool-result', '✅ Result: ' + payload.name, payload.result || '');
     }
 
-    function renderCard(type, title, bodyContent) {
+    function renderCardBeforeAssistant(type, title, bodyContent) {
         const card = document.createElement('div');
         card.className = 'card ' + type;
 
@@ -335,7 +346,35 @@
         card.appendChild(header);
         card.appendChild(preview);
         card.appendChild(body);
-        appendElement(card);
+        insertBeforeAssistant(card);
+    }
+
+    function updateContextBar(payload) {
+        const tokens = payload.tokens || 0;
+        const limit = payload.limit || 1;
+        const percent = payload.percent || 0;
+
+        const valueEl = document.getElementById('context-value');
+        const fillEl = document.getElementById('context-progress-fill');
+        if (!valueEl || !fillEl) return;
+
+        function formatNum(n) {
+            if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+            if (n >= 1000) return (n / 1000).toFixed(0) + 'K';
+            return String(n);
+        }
+
+        valueEl.textContent = formatNum(tokens) + ' / ' + formatNum(limit) + ' (' + percent + '%)';
+        fillEl.style.width = percent + '%';
+
+        fillEl.classList.remove('low', 'mid', 'high');
+        if (percent > 80) {
+            fillEl.classList.add('high');
+        } else if (percent >= 50) {
+            fillEl.classList.add('mid');
+        } else {
+            fillEl.classList.add('low');
+        }
     }
 
     function sendMessage() {

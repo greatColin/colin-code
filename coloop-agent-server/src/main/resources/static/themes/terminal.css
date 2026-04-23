@@ -390,3 +390,41 @@ body {
 .message.assistant th, .message.assistant td { border: 1px solid #333; padding: 6px 10px; text-align: left; }
 .message.assistant th { background: #1a1a1a; font-weight: 600; }
 .message.assistant hr { border: none; border-top: 1px solid #333; margin: 1em 0; }
+
+/* Context usage bar */
+.context-bar {
+    padding: 8px 20px;
+    background: #0c0c0c;
+    border-bottom: 1px solid #1a1a1a;
+    flex-shrink: 0;
+}
+.context-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+.context-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #090;
+}
+.context-value {
+    font-size: 12px;
+    color: #0f0;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+}
+.context-progress-bg {
+    height: 4px;
+    background: #1a1a1a;
+    border-radius: 2px;
+    overflow: hidden;
+}
+.context-progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+.context-progress-fill.low { background: #0f0; }
+.context-progress-fill.mid { background: #ff0; }
+.context-progress-fill.high { background: #f00; }
