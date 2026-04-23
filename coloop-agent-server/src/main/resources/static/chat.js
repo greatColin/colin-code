@@ -81,7 +81,8 @@
                 renderError(msg.payload.message);
                 break;
             case 'commands':
-                availableCommands = msg.payload.commands || [];
+                availableCommands = (msg.payload && msg.payload.commands) || [];
+                console.log('[Commands] Loaded', availableCommands.length, 'commands:', availableCommands.map(function(c) { return c.name; }));
                 break;
         }
         scrollToBottom();
@@ -264,15 +265,27 @@
     });
 
     function showSuggestions(filter) {
-        if (!availableCommands.length) return;
+        console.log('[Suggestions] showSuggestions called, filter="' + filter + '", availableCommands=' + availableCommands.length);
+        if (!availableCommands.length) {
+            console.log('[Suggestions] No commands available yet');
+            return;
+        }
 
         const filtered = availableCommands.filter(function(cmd) {
+            if (!cmd || !cmd.name) return false;
             return cmd.name.toLowerCase().indexOf(filter) !== -1 ||
                    (cmd.description || '').toLowerCase().indexOf(filter) !== -1;
         });
 
+        console.log('[Suggestions] Filtered', filtered.length, 'commands');
+
         if (!filtered.length) {
             hideSuggestions();
+            return;
+        }
+
+        if (!commandSuggestionsEl) {
+            console.error('[Suggestions] command-suggestions element not found');
             return;
         }
 
