@@ -178,7 +178,7 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
 | **纯 Java 生态** | 对 Java 开发者友好，便于在企业级 Java 环境中集成 |
 | **清晰的插件边界** | `Tool` / `PromptPlugin` / `AgentHook` / `InputInterceptor` 接口明确，扩展不侵入核心 |
 | **环境感知提示** | BasePrompt 自动注入时间、OS、工作目录，减少 LLM 的”幻觉” |
-| **流式输出就绪** | 后端 SSE 流式已完整实现（`chatStream()` + `StreamConsumer`）；前端 Markdown 渲染、代码高亮、`<think>` 标签分离已完成 |
+| **流式输出** | 完整端到端：后端 `chatStream()` + `OpenAICompatibleProvider` SSE，前端增量 Markdown 渲染（防抖 100ms/50 字符）+ 闪烁光标 |
 
 ### 我们缺失的（对 Vibe Coding / Spec Coding 有高价值）
 
@@ -202,7 +202,7 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
 #### 前端 / Web UI
 | 缺失能力 | 影响说明 | 优先级 |
 |----------|----------|--------|
-| **流式输出（前端）** | 后端已支持 SSE，但 `AgentService` 仍调用同步 `chat()`，UI 一次性渲染完整回复 | P0 |
+| **流式输出（前端）** | ✅ 已实现：`AgentService` 使用 `chatStream()`；WebSocket 推送 `stream_chunk` 消息；前端增量渲染，支持防抖 Markdown + 代码高亮 + 闪烁光标 | P0 |
 | **Markdown 渲染** | ✅ 已实现：集成 `marked.js` 渲染粗体、列表、链接、表格、代码块；`<think>` 标签提取为可折叠卡片 | P0 |
 | **代码语法高亮** | ✅ 已实现：集成 `highlight.js`，全部 9 套主题均适配代码块样式 | P0 |
 | **命令系统** | ✅ 已实现：`Command` 接口 + `CommandRegistry` + `CommandInterceptor`；内置 `/exit`、`/new`、`/compact`、`/model`、`/help`；支持从 `~/.coloop/commands/` 和 `./.coloop/commands/` 扫描用户自定义命令（JSON + Markdown 提示词模板，支持 `$ARGUMENTS`） | P1 |

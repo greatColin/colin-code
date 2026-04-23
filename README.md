@@ -178,7 +178,7 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
 | **Pure Java Ecosystem** | Friendly to Java developers; easy to integrate into enterprise Java environments |
 | **Clear Plugin Boundaries** | `Tool` / `PromptPlugin` / `AgentHook` / `InputInterceptor` interfaces are explicit; extensions do not invade the core |
 | **Environment-Aware Prompts** | BasePrompt auto-injects time, OS, and working directory to reduce LLM hallucinations |
-| **Streaming Ready** | Backend SSE streaming fully implemented (`chatStream()` + `StreamConsumer`); frontend Markdown rendering, code highlighting, and `<think>` tag extraction delivered |
+| **Streaming Output** | Full end-to-end: backend `chatStream()` + `OpenAICompatibleProvider` SSE, frontend incremental Markdown render with debouncing (100ms/50 chars) and blinking cursor |
 
 ### What We Are Missing (High Value for Vibe / Spec Coding)
 
@@ -202,7 +202,7 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
 #### Frontend / Web UI
 | Missing Capability | Impact | Priority |
 |--------------------|--------|----------|
-| **Streaming Output (Frontend)** | Backend supports SSE streaming, but `AgentService` still uses sync `chat()`; UI renders full response at once | P0 |
+| **Streaming Output (Frontend)** | ✅ Done: `AgentService` uses `chatStream()`; WebSocket pushes `stream_chunk` messages; frontend incremental render with debounced Markdown + syntax highlighting + blinking cursor | P0 |
 | **Markdown Rendering** | ✅ Done: `marked.js` integration renders bold, lists, links, tables, code blocks; `<think>` tags extracted into collapsible cards | P0 |
 | **Code Syntax Highlighting** | ✅ Done: `highlight.js` integration with theme-aware styling across all 9 themes | P0 |
 | **Command System** | ✅ Done: Dynamic `Command` interface + `CommandRegistry`; built-in `/exit`, `/new`, `/compact`, `/model`, `/help`; user-defined command scanning from `~/.coloop/commands/` and `./.coloop/commands/` (JSON + Markdown with `$ARGUMENTS`) | P1 |

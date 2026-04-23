@@ -13,6 +13,8 @@ import com.coloop.agent.core.command.CommandContext;
 import com.coloop.agent.core.command.CommandRegistry;
 import com.coloop.agent.core.command.CommandExitException;
 import com.coloop.agent.core.provider.LLMProvider;
+import com.coloop.agent.core.provider.LLMResponse;
+import com.coloop.agent.core.provider.ToolCallRequest;
 import com.coloop.agent.runtime.CapabilityLoader;
 import com.coloop.agent.runtime.StandardCapability;
 import com.coloop.agent.runtime.config.AppConfig;
@@ -112,7 +114,27 @@ public class AgentService {
                     }
                 }
 
-                agentLoop.chat(userMessage);
+                agentLoop.chatStream(userMessage, new LLMProvider.StreamConsumer() {
+                    @Override
+                    public void onContent(String chunk) {
+                        // chunk 已通过 Hook 推送到前端，此处无需额外操作
+                    }
+
+                    @Override
+                    public void onToolCall(ToolCallRequest toolCall) {
+                        // tool call 已通过 Hook 推送到前端
+                    }
+
+                    @Override
+                    public void onComplete(LLMResponse response) {
+                        // 完成，Hook 的 onLoopEnd 已发送 assistant 消息
+                    }
+
+                    @Override
+                    public void onError(String error) {
+                        sendError(session, error);
+                    }
+                });
             } catch (CommandExitException e) {
                 sendSystem(session, e.getExitMessage());
                 synchronized (ctx) {

@@ -58,4 +58,7 @@ public interface AgentHook {
 
     /** 在运行过程中注入新的用户消息时调用。 */
     default void onUserMessageInjected(String message) {}
+
+    /** 在 LLM 流式生成过程中，每收到一个内容块时调用。 */
+    default void onStreamChunk(String chunk) {}
 }
