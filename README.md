@@ -10,6 +10,7 @@ English | [简体中文](README.zh.md)
 
 ### 1. Core Agent Loop
 - `AgentLoop.chat()`: a classic `while(true)` loop that calls the LLM → parses Tool Calls → executes tools → feeds results back to the LLM until a final text response is obtained.
+- `AgentLoop.chatStream()`: SSE streaming mode that returns content word-by-word via `LLMProvider.StreamConsumer` callback. Tool calls are detected and accumulated during the stream.
 - Supports a configurable maximum iteration limit (default 10) to prevent infinite loops.
 
 ### 2. Onion-Style Four-Layer Architecture
@@ -105,6 +106,7 @@ new CapabilityLoader()
 | **SkillPromptPlugin** | Scans and injects available skill descriptions into the system prompt |
 | **AgentsMdPromptPlugin** | Auto-reads `AGENTS.md` from the working directory and injects it |
 | **LoggingHook** | Prints debug logs at key Agent Loop lifecycle nodes |
+| **Streaming (Backend)** | `LLMProvider.chatStream()` interface with SSE word-by-word streaming; `OpenAICompatibleProvider` implements true SSE; tool calls detected and accumulated during the stream |
 | **Command System** | Dynamic `Command` interface + `CommandRegistry`; built-in `/exit`, `/new`, `/compact`, `/model`, `/help`; user-defined command scanning from `~/.coloop/commands/` and `./.coloop/commands/` (project-local overrides user-defined) |
 
 ### 5. Input Interceptor (`InputInterceptor`)
@@ -151,6 +153,7 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
 | **Pure Java Ecosystem** | Friendly to Java developers; easy to integrate into enterprise Java environments |
 | **Clear Plugin Boundaries** | `Tool` / `PromptPlugin` / `AgentHook` / `InputInterceptor` interfaces are explicit; extensions do not invade the core |
 | **Environment-Aware Prompts** | BasePrompt auto-injects time, OS, and working directory to reduce LLM hallucinations |
+| **Streaming Ready** | Backend SSE streaming is fully implemented (`chatStream()` + `StreamConsumer`); frontend integration is in progress |
 
 ### What We Are Missing (High Value for Vibe / Spec Coding)
 
@@ -222,9 +225,10 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
    - ✅ Wire `CommandInterceptor` into `InputInterceptor` so `CapabilityLoader` can assemble it
    - ✅ 86 unit tests covering core interfaces, all command implementations, interceptor logic, scanner, and runtime integration
 6. **Streaming Output (Frontend)**
+   - Add `onStreamChunk()` to `AgentHook` interface for per-token streaming notifications
    - Switch `AgentService` from `agentLoop.chat()` to `agentLoop.chatStream()`
-   - Extend `WebSocketLoggingHook` with `onStreamChunk()` to push SSE fragments to the browser
-   - Frontend `chat.js`: append chunks in real time, finalize on `assistant_done` marker
+   - Extend `WebSocketLoggingHook` with `onStreamChunk()` to push SSE fragments via WebSocket (`type: stream_chunk`)
+   - Frontend `chat.js`: append chunks in real time to a growing assistant message bubble, finalize on loop end
 7. **Markdown Rendering + Code Highlighting**
    - Integrate `marked.js` for assistant message rendering
    - Integrate `highlight.js` for code block syntax highlighting

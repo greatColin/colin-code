@@ -10,6 +10,7 @@
 
 ### 1. 核心 Agent Loop
 - `AgentLoop.chat()`：经典的 `while(true)` 循环，调用 LLM → 解析 Tool Calls → 执行工具 → 将结果回传给 LLM，直到获得最终文本回复。
+- `AgentLoop.chatStream()`：SSE 流式模式，通过 `LLMProvider.StreamConsumer` 回调逐字返回内容，支持流式过程中的 Tool Call 检测与累积。
 - 支持最大迭代次数限制（默认 10 轮），防止无限循环。
 
 ### 2. 洋葱式四层架构
@@ -105,6 +106,7 @@ new CapabilityLoader()
 | **SkillPromptPlugin** | 扫描并注入可用技能说明到系统提示 |
 | **AgentsMdPromptPlugin** | 自动读取工作目录下的 `AGENTS.md` 并注入系统提示 |
 | **LoggingHook** | 在 Agent Loop 关键生命周期节点打印调试日志 |
+| **流式输出（后端）** | `LLMProvider.chatStream()` 接口 + SSE 逐字流式传输；`OpenAICompatibleProvider` 实现真实 SSE；支持流式过程中检测并累积 Tool Call |
 | **Command System** | 动态 `Command` 接口 + `CommandRegistry`；内置 `/exit`、`/new`、`/compact`、`/model`、`/help`；支持从 `~/.coloop/commands/` 和 `./.coloop/commands/` 扫描用户自定义命令（项目本地命令覆盖用户命令） |
 
 ### 5. 输入拦截器（InputInterceptor）
@@ -150,7 +152,8 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
 | **极简内核** | 无 IDE 依赖、无重型框架，代码行数少，适合学习和二次开发 |
 | **纯 Java 生态** | 对 Java 开发者友好，便于在企业级 Java 环境中集成 |
 | **清晰的插件边界** | `Tool` / `PromptPlugin` / `AgentHook` / `InputInterceptor` 接口明确，扩展不侵入核心 |
-| **环境感知提示** | BasePrompt 自动注入时间、OS、工作目录，减少 LLM 的“幻觉” |
+| **环境感知提示** | BasePrompt 自动注入时间、OS、工作目录，减少 LLM 的”幻觉” |
+| **流式输出就绪** | 后端 SSE 流式已完整实现（`chatStream()` + `StreamConsumer`）；前端集成进行中 |
 
 ### 我们缺失的（对 Vibe Coding / Spec Coding 有高价值）
 
@@ -222,9 +225,10 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
    - ✅ 将 `CommandInterceptor` 接入 `InputInterceptor`，使 `CapabilityLoader` 可组装
    - ✅ 覆盖 86 个单元测试，验证核心接口、所有命令实现、拦截器逻辑、扫描器和运行时集成
 6. **流式输出（前端）**
+   - `AgentHook` 接口新增 `onStreamChunk()`，用于逐 token 流式通知
    - `AgentService` 从 `agentLoop.chat()` 切换到 `agentLoop.chatStream()`
-   - 扩展 `WebSocketLoggingHook`，新增 `onStreamChunk()` 将 SSE 片段推送到浏览器
-   - 前端 `chat.js`：实时追加文本块，收到 `assistant_done` 标记后结束流状态
+   - 扩展 `WebSocketLoggingHook`，新增 `onStreamChunk()` 将 SSE 片段通过 WebSocket 推送（`type: stream_chunk`）
+   - 前端 `chat.js`：实时追加文本块到渐增的助手消息气泡，循环结束时完成渲染
 7. **Markdown 渲染 + 代码高亮**
    - 前端引入 `marked.js` 渲染助手消息
    - 引入 `highlight.js` 做代码块语法高亮
