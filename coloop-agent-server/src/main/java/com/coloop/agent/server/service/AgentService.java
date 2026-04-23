@@ -107,6 +107,8 @@ public class AgentService {
                                 .withInterceptor(cmdInterceptor)
                                 .build(provider, config);
 
+                        hook.setAgentLoop(agentLoop);
+
                         cmdCtx.setAgentLoop(agentLoop);
                         ctx.agentLoop = agentLoop;
                     } else {

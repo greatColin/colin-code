@@ -88,6 +88,14 @@ public class WebSocketMessage {
         return new WebSocketMessage("commands", payload);
     }
 
+    public static WebSocketMessage contextUsage(int tokens, int limit, int percent) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("tokens", tokens);
+        payload.put("limit", limit);
+        payload.put("percent", percent);
+        return new WebSocketMessage("context_usage", payload);
+    }
+
     public String getType() {
         return type;
     }

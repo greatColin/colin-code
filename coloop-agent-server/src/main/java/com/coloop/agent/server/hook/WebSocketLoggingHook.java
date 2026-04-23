@@ -1,6 +1,7 @@
 package com.coloop.agent.server.hook;
 
 import com.coloop.agent.core.agent.AgentHook;
+import com.coloop.agent.core.agent.AgentLoop;
 import com.coloop.agent.core.provider.ToolCallRequest;
 import com.coloop.agent.server.dto.WebSocketMessage;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,11 +21,21 @@ public class WebSocketLoggingHook implements AgentHook {
     private final WebSocketSession session;
     private final ObjectMapper objectMapper;
     private final AtomicInteger loopCount;
+    private AgentLoop agentLoop;
 
-    public WebSocketLoggingHook(WebSocketSession session) {
+    public WebSocketLoggingHook(WebSocketSession session, AgentLoop agentLoop) {
         this.session = session;
         this.objectMapper = new ObjectMapper();
         this.loopCount = new AtomicInteger(0);
+        this.agentLoop = agentLoop;
+    }
+
+    public WebSocketLoggingHook(WebSocketSession session) {
+        this(session, null);
+    }
+
+    public void setAgentLoop(AgentLoop agentLoop) {
+        this.agentLoop = agentLoop;
     }
 
     @Override
@@ -37,6 +48,13 @@ public class WebSocketLoggingHook implements AgentHook {
     public void beforeLLMCall(List<Map<String, Object>> messages) {
         int current = loopCount.incrementAndGet();
         send(WebSocketMessage.loopStart(current));
+        if (agentLoop != null) {
+            send(WebSocketMessage.contextUsage(
+                agentLoop.getCurrentTokenCount(),
+                agentLoop.getContextLimit(),
+                agentLoop.getContextUsagePercent()
+            ));
+        }
     }
 
     @Override
