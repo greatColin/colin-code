@@ -1,0 +1,1370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>coloop-agent 控制台</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg: #f3f0ea;
+            --bg-warm: #f5f3ee;
+            --card: #ffffff;
+            --card-dark: #1e1e1e;
+            --text: #1a1a1a;
+            --text-secondary: #6b6b6b;
+            --text-muted: #9a9a9a;
+            --accent-yellow: #f5c842;
+            --accent-yellow-dark: #e8b923;
+            --border: #e8e4dc;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            --radius: 24px;
+            --radius-sm: 16px;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #b8bcc4;
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        .app-wrapper {
+            background: var(--bg);
+            border-radius: 32px;
+            padding: 28px 36px;
+            width: 100%;
+            max-width: 1280px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
+        }
+
+        /* ===== Navbar ===== */
+        .navbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 28px;
+        }
+
+        .nav-left {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+        }
+
+        .logo {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -0.5px;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 20px;
+            transition: all 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--text);
+            background: rgba(0,0,0,0.04);
+        }
+
+        .nav-links a.active {
+            background: var(--text);
+            color: #fff;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: var(--card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: var(--shadow);
+            transition: transform 0.2s;
+        }
+
+        .icon-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--card);
+            box-shadow: var(--shadow);
+        }
+
+        /* ===== Welcome Section ===== */
+        .welcome-section {
+            margin-bottom: 24px;
+        }
+
+        .welcome-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .welcome-title {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .stats-row {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .stat-item {
+            text-align: right;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            font-weight: 500;
+        }
+
+        .stat-divider {
+            width: 1px;
+            height: 32px;
+            background: var(--border);
+        }
+
+        .welcome-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .tabs {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tab {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            background: rgba(0,0,0,0.04);
+        }
+
+        .tab.active-dark {
+            background: var(--text);
+            color: #fff;
+        }
+
+        .tab.active-yellow {
+            background: var(--accent-yellow);
+            color: var(--text);
+        }
+
+        .pills {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: 12px;
+        }
+
+        .pill {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .pill-dark {
+            background: var(--text);
+            color: #fff;
+        }
+
+        .pill-yellow {
+            background: var(--accent-yellow);
+            color: var(--text);
+        }
+
+        .pill-light {
+            background: var(--card);
+            color: var(--text-secondary);
+            box-shadow: var(--shadow);
+        }
+
+        .output-dropdown {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            background: var(--card);
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            box-shadow: var(--shadow);
+            cursor: pointer;
+            margin-left: auto;
+        }
+
+        .output-dropdown span {
+            color: var(--text-muted);
+            font-size: 11px;
+        }
+
+        /* ===== Dashboard Grid ===== */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 280px 1fr 1fr 280px;
+            grid-template-rows: auto auto;
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+        }
+
+        .card-dark {
+            background: var(--card-dark);
+            color: #fff;
+        }
+
+        .card-header-flex {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .card-dark .card-title {
+            color: rgba(255,255,255,0.7);
+        }
+
+        .card-arrow {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            background: transparent;
+            transition: all 0.2s;
+        }
+
+        .card-arrow:hover {
+            background: var(--bg);
+        }
+
+        /* ===== Profile Card ===== */
+        .profile-card {
+            grid-column: 1;
+            grid-row: 1;
+            position: relative;
+            overflow: hidden;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .profile-image-wrap {
+            position: relative;
+            flex: 1;
+            min-height: 260px;
+        }
+
+        .profile-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: var(--radius) var(--radius) 0 0;
+            display: block;
+        }
+
+        .profile-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 60px 16px 16px;
+            background: linear-gradient(transparent, rgba(0,0,0,0.6));
+            border-radius: 0 0 var(--radius) var(--radius);
+        }
+
+        .profile-name {
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .profile-role {
+            color: rgba(255,255,255,0.7);
+            font-size: 12px;
+            margin-top: 2px;
+        }
+
+        .profile-salary {
+            position: absolute;
+            bottom: 16px;
+            right: 16px;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(8px);
+            padding: 6px 12px;
+            border-radius: 20px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        /* ===== Progress Card ===== */
+        .progress-card {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        .progress-hours {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+
+        .progress-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+
+        .bar-chart {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 8px;
+            height: 80px;
+        }
+
+        .bar-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .bar {
+            width: 100%;
+            max-width: 28px;
+            border-radius: 6px;
+            background: var(--text);
+            transition: height 0.5s ease;
+        }
+
+        .bar.active {
+            background: var(--accent-yellow);
+        }
+
+        .bar-day {
+            font-size: 10px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .bar-highlight {
+            position: absolute;
+            top: -22px;
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--accent-yellow-dark);
+            background: var(--accent-yellow);
+            padding: 2px 6px;
+            border-radius: 6px;
+        }
+
+        .bar-wrap {
+            position: relative;
+            flex: 1;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            width: 100%;
+        }
+
+        /* ===== Time Tracker Card ===== */
+        .time-card {
+            grid-column: 3;
+            grid-row: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .time-card .card-header-flex {
+            width: 100%;
+        }
+
+        .circle-progress {
+            position: relative;
+            width: 140px;
+            height: 140px;
+            margin: 8px 0;
+        }
+
+        .circle-progress svg {
+            transform: rotate(-90deg);
+        }
+
+        .circle-bg {
+            fill: none;
+            stroke: var(--border);
+            stroke-width: 8;
+        }
+
+        .circle-fill {
+            fill: none;
+            stroke: var(--accent-yellow);
+            stroke-width: 8;
+            stroke-linecap: round;
+            stroke-dasharray: 283;
+            stroke-dashoffset: 80;
+            transition: stroke-dashoffset 1s ease;
+        }
+
+        .circle-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .circle-time {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .circle-label {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .time-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .time-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .time-btn:hover {
+            background: var(--bg);
+        }
+
+        .time-btn.primary {
+            background: var(--text);
+            color: #fff;
+            border-color: var(--text);
+        }
+
+        /* ===== Onboarding Card ===== */
+        .onboarding-card {
+            grid-column: 4;
+            grid-row: 1;
+        }
+
+        .onboarding-percent {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .segment-bar {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 16px;
+        }
+
+        .segment {
+            flex: 1;
+            height: 8px;
+            border-radius: 4px;
+            background: var(--border);
+        }
+
+        .segment.yellow {
+            background: var(--accent-yellow);
+        }
+
+        .segment.dark {
+            background: var(--text);
+        }
+
+        .segment-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .task-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: var(--bg);
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-top: 8px;
+        }
+
+        .task-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-yellow);
+        }
+
+        /* ===== Pension Card ===== */
+        .pension-card {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        .pension-title {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+        }
+
+        .pension-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .pension-item:last-child {
+            border-bottom: none;
+        }
+
+        .pension-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            overflow: hidden;
+        }
+
+        .pension-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .pension-info {
+            flex: 1;
+        }
+
+        .pension-name {
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .pension-desc {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 1px;
+        }
+
+        .pension-arrow {
+            color: var(--text-muted);
+        }
+
+        /* ===== Calendar Card ===== */
+        .calendar-card {
+            grid-column: 2 / 4;
+            grid-row: 2;
+        }
+
+        .calendar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .calendar-months {
+            display: flex;
+            gap: 4px;
+        }
+
+        .cal-month {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+        }
+
+        .cal-month.active {
+            background: var(--text);
+            color: #fff;
+        }
+
+        .cal-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        .cal-day-header {
+            font-size: 10px;
+            color: var(--text-muted);
+            font-weight: 500;
+            padding: 4px;
+        }
+
+        .cal-day {
+            font-size: 12px;
+            padding: 8px 4px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .cal-day:hover {
+            background: var(--bg);
+        }
+
+        .cal-day.active {
+            background: var(--text);
+            color: #fff;
+        }
+
+        .cal-day.other-month {
+            color: var(--text-muted);
+        }
+
+        .schedule-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .schedule-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+        }
+
+        .schedule-time {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 500;
+            min-width: 50px;
+        }
+
+        .schedule-content {
+            flex: 1;
+        }
+
+        .schedule-title {
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .schedule-desc {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .schedule-avatars {
+            display: flex;
+            align-items: center;
+        }
+
+        .schedule-avatars img {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid var(--card);
+            margin-left: -8px;
+            object-fit: cover;
+        }
+
+        .schedule-avatars img:first-child {
+            margin-left: 0;
+        }
+
+        /* ===== Onboarding Task Card (Dark) ===== */
+        .task-card {
+            grid-column: 4;
+            grid-row: 2;
+        }
+
+        .task-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .task-header-title {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .task-count {
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .task-count span {
+            color: rgba(255,255,255,0.5);
+        }
+
+        .task-progress-bar {
+            height: 6px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 3px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .task-progress-fill {
+            height: 100%;
+            width: 35%;
+            background: var(--accent-yellow);
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .task-checkbox {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .task-checkbox.checked {
+            background: var(--accent-yellow);
+            border-color: var(--accent-yellow);
+        }
+
+        .task-info {
+            flex: 1;
+        }
+
+        .task-name {
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .task-date {
+            font-size: 11px;
+            color: rgba(255,255,255,0.5);
+            margin-top: 1px;
+        }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 1200px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .profile-card { grid-column: 1; grid-row: 1; }
+            .progress-card { grid-column: 2; grid-row: 1; }
+            .time-card { grid-column: 1; grid-row: 2; }
+            .onboarding-card { grid-column: 2; grid-row: 2; }
+            .pension-card { grid-column: 1; grid-row: 3; }
+            .calendar-card { grid-column: 2; grid-row: 3; }
+            .task-card { grid-column: 1 / 3; grid-row: 4; }
+        }
+
+        @media (max-width: 768px) {
+            body { padding: 12px; }
+            .app-wrapper { padding: 20px; border-radius: 24px; }
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            .profile-card, .progress-card, .time-card, .onboarding-card,
+            .pension-card, .calendar-card, .task-card {
+                grid-column: 1;
+            }
+            .profile-card { grid-row: auto; }
+            .progress-card { grid-row: auto; }
+            .time-card { grid-row: auto; }
+            .onboarding-card { grid-row: auto; }
+            .pension-card { grid-row: auto; }
+            .calendar-card { grid-row: auto; }
+            .task-card { grid-row: auto; }
+            .nav-links { display: none; }
+            .welcome-header { flex-direction: column; gap: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-wrapper">
+    <!-- 顶部导航 -->
+    <nav class="navbar">
+        <div class="nav-left">
+            <div class="logo">coloop-agent</div>
+            <ul class="nav-links">
+                <li><a href="#" class="active">控制台</a></li>
+                <li><a href="#">核心</a></li>
+                <li><a href="#">能力</a></li>
+                <li><a href="#">运行时</a></li>
+                <li><a href="#">入口</a></li>
+                <li><a href="#">配置</a></li>
+                <li><a href="#">命令</a></li>
+                <li><a href="#">主题</a></li>
+                <li><a href="#">设置</a></li>
+            </ul>
+        </div>
+        <div class="nav-right">
+            <button class="icon-btn" aria-label="搜索">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+            </button>
+            <img src="https://i.pravatar.cc/150?img=11" alt="用户" class="avatar">
+        </div>
+    </nav>
+
+    <!-- 欢迎区域 -->
+    <section class="welcome-section">
+        <div class="welcome-header">
+            <h1 class="welcome-title">欢迎使用, coloop-agent</h1>
+            <div class="stats-row">
+                <div class="stat-item">
+                    <div class="stat-value">5</div>
+                    <div class="stat-label">文件工具</div>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <div class="stat-value">9</div>
+                    <div class="stat-label">主题样式</div>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <div class="stat-value">127</div>
+                    <div class="stat-label">单元测试</div>
+                </div>
+            </div>
+        </div>
+        <div class="welcome-controls">
+            <div class="tabs">
+                <button class="tab active-dark">对话统计</button>
+                <button class="tab active-yellow">工具调用</button>
+                <button class="tab">上下文压缩</button>
+            </div>
+            <div class="pills">
+                <span class="pill pill-dark">24</span>
+                <span class="pill pill-yellow">9</span>
+                <span class="pill pill-light">80%</span>
+            </div>
+            <div class="output-dropdown">
+                <span>压缩率</span>
+                35%
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+            </div>
+        </div>
+    </section>
+
+    <!-- 仪表盘网格 -->
+    <div class="dashboard-grid">
+        <!-- 项目概览卡 -->
+        <div class="card profile-card">
+            <div class="profile-image-wrap">
+                <img src="https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&h=500&fit=crop" alt="coloop-agent" class="profile-image">
+                <div class="profile-overlay">
+                    <div class="profile-name">coloop-agent</div>
+                    <div class="profile-role">轻量级 AGI Agent 底座</div>
+                </div>
+                <div class="profile-salary">v1.0.0</div>
+            </div>
+        </div>
+
+        <!-- 循环性能卡 -->
+        <div class="card progress-card">
+            <div class="card-header-flex">
+                <span class="card-title">循环性能</span>
+                <button class="card-arrow">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"></path><path d="M7 17 17 7"></path></svg>
+                </button>
+            </div>
+            <div class="progress-hours">8轮</div>
+            <div class="progress-label">单次对话平均轮次</div>
+            <div class="bar-chart">
+                <div class="bar-item">
+                    <div class="bar-wrap">
+                        <div class="bar" style="height: 30%"></div>
+                    </div>
+                    <span class="bar-day">一</span>
+                </div>
+                <div class="bar-item">
+                    <div class="bar-wrap">
+                        <div class="bar" style="height: 50%"></div>
+                    </div>
+                    <span class="bar-day">二</span>
+                </div>
+                <div class="bar-item">
+                    <div class="bar-wrap">
+                        <div class="bar" style="height: 40%"></div>
+                    </div>
+                    <span class="bar-day">三</span>
+                </div>
+                <div class="bar-item">
+                    <div class="bar-wrap">
+                        <div class="bar" style="height: 55%"></div>
+                    </div>
+                    <span class="bar-day">四</span>
+                </div>
+                <div class="bar-item">
+                    <div class="bar-wrap">
+                        <div class="bar" style="height: 35%"></div>
+                    </div>
+                    <span class="bar-day">五</span>
+                </div>
+                <div class="bar-item">
+                    <div class="bar-wrap">
+                        <div class="bar active" style="height: 80%"></div>
+                        <div class="bar-highlight">12次</div>
+                    </div>
+                    <span class="bar-day">六</span>
+                </div>
+                <div class="bar-item">
+                    <div class="bar-wrap">
+                        <div class="bar" style="height: 20%"></div>
+                    </div>
+                    <span class="bar-day">日</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 响应追踪卡 -->
+        <div class="card time-card">
+            <div class="card-header-flex">
+                <span class="card-title">响应追踪</span>
+                <button class="card-arrow">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"></path><path d="M7 17 17 7"></path></svg>
+                </button>
+            </div>
+            <div class="circle-progress">
+                <svg width="140" height="140" viewBox="0 0 100 100">
+                    <circle class="circle-bg" cx="50" cy="50" r="45"></circle>
+                    <circle class="circle-fill" cx="50" cy="50" r="45"></circle>
+                </svg>
+                <div class="circle-text">
+                    <div class="circle-time">1.2s</div>
+                    <div class="circle-label">平均响应时间</div>
+                </div>
+            </div>
+            <div class="time-controls">
+                <button class="time-btn" aria-label="上一个">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"></path></svg>
+                </button>
+                <button class="time-btn primary" aria-label="播放/暂停">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                </button>
+                <button class="time-btn" aria-label="下一个">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- 功能完成度卡 -->
+        <div class="card onboarding-card">
+            <div class="card-header-flex">
+                <span class="card-title">功能完成度</span>
+            </div>
+            <div class="onboarding-percent">35%</div>
+            <div class="segment-bar">
+                <div class="segment yellow"></div>
+                <div class="segment yellow"></div>
+                <div class="segment yellow"></div>
+                <div class="segment yellow"></div>
+                <div class="segment yellow"></div>
+                <div class="segment yellow"></div>
+                <div class="segment yellow"></div>
+                <div class="segment yellow"></div>
+                <div class="segment yellow"></div>
+                <div class="segment dark"></div>
+                <div class="segment dark"></div>
+                <div class="segment dark"></div>
+                <div class="segment dark"></div>
+                <div class="segment dark"></div>
+                <div class="segment"></div>
+                <div class="segment"></div>
+                <div class="segment"></div>
+                <div class="segment"></div>
+                <div class="segment"></div>
+                <div class="segment"></div>
+                <div class="segment"></div>
+                <div class="segment"></div>
+                <div class="segment"></div>
+                <div class="segment"></div>
+                <div class="segment"></div>
+                <div class="segment"></div>
+            </div>
+            <div class="segment-labels">
+                <span>9/26 已完成</span>
+                <span>5/26 进行中</span>
+                <span>12/26 待开发</span>
+            </div>
+            <div class="task-tag">
+                <div class="task-dot"></div>
+                P0 优先级
+            </div>
+        </div>
+
+        <!-- 架构层级卡 -->
+        <div class="card pension-card">
+            <div class="pension-title">
+                架构层级
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"></path></svg>
+            </div>
+            <div class="pension-item">
+                <div class="pension-icon">&#128187;</div>
+                <div class="pension-info">
+                    <div class="pension-name">核心层 core</div>
+                    <div class="pension-desc">5 个核心接口</div>
+                </div>
+                <svg class="pension-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+            </div>
+            <div class="pension-item">
+                <div class="pension-icon">&#128295;</div>
+                <div class="pension-info">
+                    <div class="pension-name">能力层 capability</div>
+                    <div class="pension-desc">12 个可插拔实现</div>
+                </div>
+                <svg class="pension-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+            </div>
+            <div class="pension-item">
+                <div class="pension-icon">&#9881;</div>
+                <div class="pension-info">
+                    <div class="pension-name">运行时 runtime</div>
+                    <div class="pension-desc">4 个组装组件</div>
+                </div>
+                <svg class="pension-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+            </div>
+        </div>
+
+        <!-- 活动日志卡 -->
+        <div class="card calendar-card">
+            <div class="calendar-header">
+                <div class="calendar-months">
+                    <button class="cal-month">2月</button>
+                    <button class="cal-month active">3月 2025</button>
+                    <button class="cal-month">4月</button>
+                </div>
+            </div>
+            <div class="cal-grid">
+                <div class="cal-day-header">一</div>
+                <div class="cal-day-header">二</div>
+                <div class="cal-day-header">三</div>
+                <div class="cal-day-header">四</div>
+                <div class="cal-day-header">五</div>
+                <div class="cal-day-header">六</div>
+                <div class="cal-day-header">日</div>
+
+                <div class="cal-day other-month">24</div>
+                <div class="cal-day other-month">25</div>
+                <div class="cal-day other-month">26</div>
+                <div class="cal-day other-month">27</div>
+                <div class="cal-day other-month">28</div>
+                <div class="cal-day">1</div>
+                <div class="cal-day">2</div>
+
+                <div class="cal-day">3</div>
+                <div class="cal-day">4</div>
+                <div class="cal-day">5</div>
+                <div class="cal-day">6</div>
+                <div class="cal-day">7</div>
+                <div class="cal-day">8</div>
+                <div class="cal-day">9</div>
+
+                <div class="cal-day">10</div>
+                <div class="cal-day">11</div>
+                <div class="cal-day">12</div>
+                <div class="cal-day">13</div>
+                <div class="cal-day">14</div>
+                <div class="cal-day">15</div>
+                <div class="cal-day">16</div>
+
+                <div class="cal-day">17</div>
+                <div class="cal-day">18</div>
+                <div class="cal-day">19</div>
+                <div class="cal-day">20</div>
+                <div class="cal-day">21</div>
+                <div class="cal-day">22</div>
+                <div class="cal-day">23</div>
+
+                <div class="cal-day">24</div>
+                <div class="cal-day active">25</div>
+                <div class="cal-day">26</div>
+                <div class="cal-day">27</div>
+                <div class="cal-day">28</div>
+                <div class="cal-day">29</div>
+                <div class="cal-day">30</div>
+
+                <div class="cal-day">31</div>
+                <div class="cal-day other-month">1</div>
+                <div class="cal-day other-month">2</div>
+                <div class="cal-day other-month">3</div>
+                <div class="cal-day other-month">4</div>
+                <div class="cal-day other-month">5</div>
+                <div class="cal-day other-month">6</div>
+            </div>
+            <div class="schedule-list">
+                <div class="schedule-item">
+                    <span class="schedule-time">08:30</span>
+                    <div class="schedule-content">
+                        <div class="schedule-title">/compact 上下文压缩</div>
+                        <div class="schedule-desc">自动触发，保留最近 2 轮对话</div>
+                    </div>
+                    <div class="schedule-avatars">
+                        <img src="https://i.pravatar.cc/150?img=1" alt="">
+                        <img src="https://i.pravatar.cc/150?img=2" alt="">
+                    </div>
+                </div>
+                <div class="schedule-item">
+                    <span class="schedule-time">10:15</span>
+                    <div class="schedule-content">
+                        <div class="schedule-title">read_file 读取配置</div>
+                        <div class="schedule-desc">读取 AppConfig.java 查看模型配置</div>
+                    </div>
+                    <div class="schedule-avatars">
+                        <img src="https://i.pravatar.cc/150?img=3" alt="">
+                    </div>
+                </div>
+                <div class="schedule-item">
+                    <span class="schedule-time">14:00</span>
+                    <div class="schedule-content">
+                        <div class="schedule-title">edit_file 修改代码</div>
+                        <div class="schedule-desc">安全编辑 AgentLoop.java 循环逻辑</div>
+                    </div>
+                    <div class="schedule-avatars">
+                        <img src="https://i.pravatar.cc/150?img=4" alt="">
+                        <img src="https://i.pravatar.cc/150?img=5" alt="">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 路线图任务卡（深色） -->
+        <div class="card card-dark task-card">
+            <div class="task-header">
+                <span class="task-header-title">路线图任务</span>
+                <span class="task-count">9<span>/26</span></span>
+            </div>
+            <div class="task-progress-bar">
+                <div class="task-progress-fill"></div>
+            </div>
+            <div class="task-list">
+                <div class="task-item">
+                    <div class="task-checkbox checked">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+                    </div>
+                    <div class="task-info">
+                        <div class="task-name">文件系统工具集</div>
+                        <div class="task-date">阶段一 · 已完成</div>
+                    </div>
+                </div>
+                <div class="task-item">
+                    <div class="task-checkbox checked">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+                    </div>
+                    <div class="task-info">
+                        <div class="task-name">Markdown 渲染</div>
+                        <div class="task-date">阶段二 · 已完成</div>
+                    </div>
+                </div>
+                <div class="task-item">
+                    <div class="task-checkbox checked">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+                    </div>
+                    <div class="task-info">
+                        <div class="task-name">代码语法高亮</div>
+                        <div class="task-date">阶段二 · 已完成</div>
+                    </div>
+                </div>
+                <div class="task-item">
+                    <div class="task-checkbox"></div>
+                    <div class="task-info">
+                        <div class="task-name">前端流式输出</div>
+                        <div class="task-date">阶段二 · 进行中</div>
+                    </div>
+                </div>
+                <div class="task-item">
+                    <div class="task-checkbox"></div>
+                    <div class="task-info">
+                        <div class="task-name">会话历史侧边栏</div>
+                        <div class="task-date">阶段三 · 待开发</div>
+                    </div>
+                </div>
+                <div class="task-item">
+                    <div class="task-checkbox"></div>
+                    <div class="task-info">
+                        <div class="task-name">Git 集成工具</div>
+                        <div class="task-date">阶段三 · 待开发</div>
+                    </div>
+                </div>
+                <div class="task-item">
+                    <div class="task-checkbox"></div>
+                    <div class="task-info">
+                        <div class="task-name">MCP 客户端支持</div>
+                        <div class="task-date">阶段四 · 待开发</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const circle = document.querySelector('.circle-fill');
+            if (circle) {
+                circle.style.strokeDashoffset = '283';
+                setTimeout(() => {
+                    circle.style.strokeDashoffset = '80';
+                }, 300);
+            }
+
+            const bars = document.querySelectorAll('.bar');
+            bars.forEach((bar, i) => {
+                const targetHeight = bar.style.height;
+                bar.style.height = '0';
+                setTimeout(() => {
+                    bar.style.height = targetHeight;
+                }, 400 + i * 80);
+            });
+
+            document.querySelectorAll('.task-checkbox').forEach(cb => {
+                cb.addEventListener('click', function() {
+                    this.classList.toggle('checked');
+                    updateProgress();
+                });
+            });
+
+            function updateProgress() {
+                const total = document.querySelectorAll('.task-checkbox').length;
+                const checked = document.querySelectorAll('.task-checkbox.checked').length;
+                const fill = document.querySelector('.task-progress-fill');
+                const count = document.querySelector('.task-count');
+                if (fill) fill.style.width = (checked / total * 100) + '%';
+                if (count) count.innerHTML = checked + '<span>/' + total + '</span>';
+            }
+        });
+    </script>
+    </div>
+</body>
+</html>
