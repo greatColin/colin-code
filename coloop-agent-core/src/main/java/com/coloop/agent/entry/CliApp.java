@@ -54,6 +54,7 @@ public class CliApp {
             .withCapability(StandardCapability.LIST_DIRECTORY_TOOL, config)
             .withCapability(StandardCapability.BASE_PROMPT, config)
             .withCapability(StandardCapability.AGENTS_MD_PROMPT, config)
+            .withCapability(StandardCapability.SUMMARY_PROMPT, config)
             .withCapability(StandardCapability.LOGGING_HOOK, config)
             .withCapability(StandardCapability.MCP_CLIENT, config)
             .withInterceptor(cmdInterceptor)

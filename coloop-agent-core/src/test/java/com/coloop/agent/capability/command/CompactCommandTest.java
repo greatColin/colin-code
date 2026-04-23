@@ -32,12 +32,12 @@ class CompactCommandTest {
     }
 
     @Test
-    void testExecuteCallsAgentLoopReset() {
-        boolean[] resetCalled = {false};
+    void testExecuteCallsAgentLoopCompact() {
+        boolean[] compactCalled = {false};
         AgentLoop agentLoop = new AgentLoop(null, null, null, null, null, new AppConfig()) {
             @Override
-            public void reset() {
-                resetCalled[0] = true;
+            public void compact() {
+                compactCalled[0] = true;
             }
         };
 
@@ -45,6 +45,6 @@ class CompactCommandTest {
         ctx.setAgentLoop(agentLoop);
         command.execute(ctx, "");
 
-        assertTrue(resetCalled[0]);
+        assertTrue(compactCalled[0]);
     }
 }

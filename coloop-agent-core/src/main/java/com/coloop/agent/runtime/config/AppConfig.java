@@ -20,6 +20,7 @@ public class AppConfig {
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final int DEFAULT_MAX_ITERATIONS = 50;
     private static final int DEFAULT_EXEC_TIMEOUT_SECONDS = 30;
+    public static final int DEFAULT_MAX_CONTEXT_SIZE = 100 * 1024;
 
     // 存储所有模型配置
     private Map<String, ModelConfig> models = new HashMap<>();
@@ -27,6 +28,7 @@ public class AppConfig {
     private String defaultModel;
     private Integer maxIterations;
     private Integer execTimeoutSeconds;
+    private String maxContextSize;
 
     // MCP 服务器配置
     private Map<String, McpServerConfig> mcpServers = new HashMap<>();
@@ -42,6 +44,7 @@ public class AppConfig {
         private String apiBase;
         private Integer maxTokens;
         private Double temperature;
+        private String maxContextSize;
 
         public String getModel() { return model; }
         public void setModel(String model) { this.model = model; }
@@ -57,6 +60,16 @@ public class AppConfig {
 
         public double getTemperature() { return temperature != null ? temperature : DEFAULT_TEMPERATURE; }
         public void setTemperature(Double temperature) { this.temperature = temperature; }
+
+        public boolean hasMaxContextSize() {
+            return maxContextSize != null && !maxContextSize.isEmpty();
+        }
+        public int getMaxContextSize() {
+            return AppConfig.parseMaxContextSize(maxContextSize);
+        }
+        public void setMaxContextSize(String maxContextSize) {
+            this.maxContextSize = maxContextSize;
+        }
     }
 
     // ==================== 内部类：MCP 服务器配置 ====================
@@ -109,10 +122,43 @@ public class AppConfig {
     }
     public void setExecTimeoutSeconds(Integer execTimeoutSeconds) { this.execTimeoutSeconds = execTimeoutSeconds; }
 
+    public int getMaxContextSize() {
+        // 优先使用当前默认模型显式配置的上下文大小
+        ModelConfig mc = getDefaultModelConfig();
+        if (mc != null && mc.hasMaxContextSize()) {
+            return mc.getMaxContextSize();
+        }
+        return parseMaxContextSize(maxContextSize);
+    }
+    public void setMaxContextSize(String maxContextSize) {
+        this.maxContextSize = maxContextSize;
+    }
+
     public Map<String, McpServerConfig> getMcpServers() { return mcpServers; }
     public void setMcpServers(Map<String, McpServerConfig> mcpServers) { this.mcpServers = mcpServers; }
 
     // ==================== 静态工厂方法 ====================
+
+    /**
+     * 解析最大上下文大小，支持无单位、'k'、'm' 后缀（如 8192、8k、4m）。
+     */
+    private static int parseMaxContextSize(String value) {
+        if (value == null || value.isEmpty()) {
+            return DEFAULT_MAX_CONTEXT_SIZE;
+        }
+        String v = value.trim().toLowerCase();
+        try {
+            if (v.endsWith("k")) {
+                return Integer.parseInt(v.substring(0, v.length() - 1).trim()) * 1024;
+            } else if (v.endsWith("m")) {
+                return Integer.parseInt(v.substring(0, v.length() - 1).trim()) * 1024 * 1024;
+            } else {
+                return Integer.parseInt(v);
+            }
+        } catch (NumberFormatException e) {
+            return DEFAULT_MAX_CONTEXT_SIZE;
+        }
+    }
 
     /**
      * 从环境变量加载配置，返回一个新的 AppConfig 实例。
@@ -133,6 +179,10 @@ public class AppConfig {
         if (model != null) mc.setModel(model);
         if (apiKey != null) mc.setApiKey(apiKey);
         if (apiBase != null) mc.setApiBase(apiBase);
+
+        String maxCtx = System.getenv("COLIN_CODE_MAX_CONTEXT");
+        if (maxCtx == null) maxCtx = System.getenv("MAX_CONTEXT_SIZE");
+        if (maxCtx != null) config.setMaxContextSize(maxCtx);
 
         config.models.put("default", mc);
         return config;
@@ -165,6 +215,7 @@ public class AppConfig {
                 mc.setApiBase(expandEnv(getString(modelNode, "apiBase", "")));
                 mc.setMaxTokens(getInteger(modelNode, "maxTokens"));
                 mc.setTemperature(getDouble(modelNode, "temperature"));
+                mc.setMaxContextSize(expandEnv(getString(modelNode, "maxContextSize", null)));
                 config.models.put(name, mc);
             }
         }
@@ -184,6 +235,7 @@ public class AppConfig {
         config.defaultModel = getString(root, "defaultModel", null);
         config.maxIterations = getInteger(root, "maxIterations");
         config.execTimeoutSeconds = getInteger(root, "execTimeoutSeconds");
+        config.maxContextSize = getString(root, "maxContextSize", null);
 
         return config;
     }

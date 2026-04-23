@@ -25,6 +25,8 @@ public class CapabilityLoader {
     private final List<AgentHook> hooks = new ArrayList<AgentHook>();
     private final List<InputInterceptor> interceptors = new ArrayList<InputInterceptor>();
     private MessageBuilder messageBuilder;
+    private com.coloop.agent.core.context.ContextCompactor compactor;
+    private com.coloop.agent.core.context.ConversationState conversationState;
 
     public CapabilityLoader withTool(Tool tool) {
         if (tool != null) {
@@ -56,6 +58,16 @@ public class CapabilityLoader {
 
     public CapabilityLoader withMessageBuilder(MessageBuilder messageBuilder) {
         this.messageBuilder = messageBuilder;
+        return this;
+    }
+
+    public CapabilityLoader withContextCompactor(com.coloop.agent.core.context.ContextCompactor compactor) {
+        this.compactor = compactor;
+        return this;
+    }
+
+    public CapabilityLoader withConversationState(com.coloop.agent.core.context.ConversationState conversationState) {
+        this.conversationState = conversationState;
         return this;
     }
 
@@ -100,13 +112,35 @@ public class CapabilityLoader {
             registry.register(t);
         }
 
+        // 自动创建共享会话状态
+        if (this.conversationState == null) {
+            this.conversationState = new com.coloop.agent.core.context.ConversationState();
+        }
+
+        // 为 SummaryPromptPlugin 注入会话状态
+        for (PromptPlugin plugin : promptPlugins) {
+            if (plugin instanceof com.coloop.agent.capability.prompt.SummaryPromptPlugin) {
+                ((com.coloop.agent.capability.prompt.SummaryPromptPlugin) plugin).setConversationState(conversationState);
+            }
+        }
+
         MessageBuilder mb = this.messageBuilder;
         if (mb == null) {
             mb = new com.coloop.agent.capability.message.StandardMessageBuilder(promptPlugins, config);
         }
 
-        return new AgentLoop(
+        AgentLoop agentLoop = new AgentLoop(
                 provider, registry, mb, hooks, interceptors, config
         );
+        agentLoop.setConversationState(conversationState);
+
+        // 自动创建默认 compactor（若未手动设置且 provider 可用）
+        if (this.compactor == null && provider != null) {
+            agentLoop.setContextCompactor(new com.coloop.agent.capability.context.LLMContextCompactor(provider));
+        } else if (this.compactor != null) {
+            agentLoop.setContextCompactor(this.compactor);
+        }
+
+        return agentLoop;
     }
 }

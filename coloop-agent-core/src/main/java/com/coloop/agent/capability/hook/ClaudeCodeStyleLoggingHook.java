@@ -3,6 +3,8 @@ package com.coloop.agent.capability.hook;
 import com.coloop.agent.core.agent.AgentHook;
 import com.coloop.agent.core.provider.LLMResponse;
 import com.coloop.agent.core.provider.ToolCallRequest;
+import com.coloop.agent.core.util.TokenEstimator;
+import com.coloop.agent.runtime.config.AppConfig;
 
 import java.util.List;
 import java.util.Map;
@@ -45,6 +47,11 @@ public class ClaudeCodeStyleLoggingHook implements AgentHook {
     /** 当前循环计数 */
     private final AtomicInteger loopCount = new AtomicInteger(0);
 
+    private final AppConfig config;
+    private int lastTokenCount = 0;
+    private int lastContextLimit = 0;
+    private int lastUsagePercent = 0;
+
     // ==================== 常量定义 ====================
 
     /** Claude Code 风格的边框角 - 左上 */
@@ -77,6 +84,11 @@ public class ClaudeCodeStyleLoggingHook implements AgentHook {
      * 创建一个新的 Claude Code 风格日志钩子。
      */
     public ClaudeCodeStyleLoggingHook() {
+        this(null);
+    }
+
+    public ClaudeCodeStyleLoggingHook(AppConfig config) {
+        this.config = config;
     }
 
     // ==================== AgentHook 实现 ====================
@@ -91,7 +103,15 @@ public class ClaudeCodeStyleLoggingHook implements AgentHook {
     @Override
     public void beforeLLMCall(List<Map<String, Object>> messages) {
         int count = loopCount.incrementAndGet();
+        lastTokenCount = TokenEstimator.estimate(messages);
+        lastContextLimit = config != null ? config.getMaxContextSize() : 0;
+        if (lastContextLimit > 0) {
+            lastUsagePercent = Math.min(100, (int) ((lastTokenCount * 100L) / lastContextLimit));
+        } else {
+            lastUsagePercent = 0;
+        }
         printLoopStart(count);
+        printContextUsage();
     }
 
     @Override
@@ -158,6 +178,16 @@ public class ClaudeCodeStyleLoggingHook implements AgentHook {
         System.out.println(AnsiColors.colorize(CORNER_TOP_LEFT + border + CORNER_TOP_RIGHT, AnsiColors.SEPARATOR_COLOR));
         System.out.println(label + " " + AnsiColors.colorize(content, AnsiColors.FG_WHITE));
         System.out.println(AnsiColors.colorize(CORNER_BOTTOM_LEFT + border + CORNER_BOTTOM_RIGHT, AnsiColors.SEPARATOR_COLOR));
+    }
+
+    /**
+     * 打印上下文占用信息。
+     */
+    private void printContextUsage() {
+        if (lastContextLimit <= 0) return;
+        String label = AnsiColors.colorize("[ CONTEXT ]", AnsiColors.THINK_COLOR);
+        String text = lastTokenCount + "/" + lastContextLimit + " tokens (" + lastUsagePercent + "%)";
+        System.out.println(label + " " + AnsiColors.colorize(text, AnsiColors.FG_WHITE));
     }
 
     /**

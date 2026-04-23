@@ -25,8 +25,8 @@ public class CompactCommand implements Command {
     @Override
     public CommandResult execute(CommandContext ctx, String args) {
         if (ctx.getAgentLoop() != null) {
-            ctx.getAgentLoop().reset();
+            ctx.getAgentLoop().compact();
         }
-        return CommandResult.success("Context compacted. Previous messages cleared.");
+        return CommandResult.success("Context compacted. Previous messages summarized.");
     }
 }

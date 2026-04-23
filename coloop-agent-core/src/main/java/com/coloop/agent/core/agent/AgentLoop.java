@@ -1,5 +1,8 @@
 package com.coloop.agent.core.agent;
 
+import com.coloop.agent.core.context.ConversationState;
+import com.coloop.agent.core.context.ConversationSummary;
+import com.coloop.agent.core.context.ContextCompactor;
 import com.coloop.agent.core.interceptor.InputInterceptor;
 import com.coloop.agent.core.message.MessageBuilder;
 import com.coloop.agent.core.provider.LLMProvider;
@@ -7,10 +10,12 @@ import com.coloop.agent.core.provider.LLMResponse;
 import com.coloop.agent.core.provider.ToolCallRequest;
 import com.coloop.agent.core.tool.Tool;
 import com.coloop.agent.core.tool.ToolRegistry;
+import com.coloop.agent.core.util.TokenEstimator;
 import com.coloop.agent.runtime.config.AppConfig;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -39,6 +44,10 @@ public class AgentLoop {
 
     /** 运行中待注入的用户消息队列 */
     private final ConcurrentLinkedQueue<String> pendingUserMessages = new ConcurrentLinkedQueue<>();
+
+    private ContextCompactor compactor;
+    private ConversationState conversationState;
+    private ConversationSummary currentSummary;
 
     /**
      * @param provider        LLM 提供商
@@ -89,6 +98,7 @@ public class AgentLoop {
             for (AgentHook h : hooks) {
                 h.beforeLLMCall(messages);
             }
+            checkAndAutoCompact();
             LLMResponse response = provider.chat(
                     messages,
                     toolRegistry.getDefinitions(),
@@ -159,6 +169,7 @@ public class AgentLoop {
             for (AgentHook h : hooks) {
                 h.beforeLLMCall(messages);
             }
+            checkAndAutoCompact();
 
             final LLMResponse[] responseHolder = new LLMResponse[1];
             LLMProvider.StreamConsumer accumulatingConsumer = new LLMProvider.StreamConsumer() {
@@ -252,6 +263,117 @@ public class AgentLoop {
     public void reset() {
         this.messages = null;
         this.pendingUserMessages.clear();
+        this.currentSummary = null;
+        if (this.conversationState != null) {
+            this.conversationState.setSummary(null);
+        }
+    }
+
+    /** 设置上下文压缩器。 */
+    public void setContextCompactor(ContextCompactor compactor) {
+        this.compactor = compactor;
+    }
+
+    /** 设置会话状态共享对象。 */
+    public void setConversationState(ConversationState conversationState) {
+        this.conversationState = conversationState;
+    }
+
+    /** 获取当前消息列表的估算 token 数。 */
+    public int getCurrentTokenCount() {
+        return TokenEstimator.estimate(messages);
+    }
+
+    /** 获取配置的最大上下文 token 数。 */
+    public int getContextLimit() {
+        return config.getMaxContextSize();
+    }
+
+    /** 获取当前上下文占用百分比（0-100）。 */
+    public int getContextUsagePercent() {
+        int limit = getContextLimit();
+        if (limit <= 0) return 0;
+        return Math.min(100, (int) ((getCurrentTokenCount() * 100L) / limit));
+    }
+
+    /**
+     * 压缩上下文：将历史消息生成摘要并注入 system prompt，释放 token 窗口。
+     *
+     * <p>默认不保留最近轮次（keepLastN=0）。
+     * 若配置了 {@link ContextCompactor}，则调用其生成摘要；否则仅重置。</p>
+     */
+    public void compact() {
+        compact(0);
+    }
+
+    /**
+     * 压缩上下文，保留最近指定轮数的消息不压缩。
+     *
+     * @param keepLastN 保留最近多少条非 system 消息
+     */
+    public void compact(int keepLastN) {
+        if (compactor == null || messages == null || messages.isEmpty()) {
+            return;
+        }
+
+        // 分离 system message、待压缩部分和保留部分
+        List<Map<String, Object>> systemMessages = new ArrayList<>();
+        List<Map<String, Object>> toSummarize = new ArrayList<>();
+        List<Map<String, Object>> toKeep = new ArrayList<>();
+
+        for (Map<String, Object> msg : messages) {
+            if ("system".equals(msg.get("role"))) {
+                systemMessages.add(msg);
+            } else {
+                toSummarize.add(msg);
+            }
+        }
+
+        if (toSummarize.size() <= keepLastN) {
+            return;
+        }
+
+        // 将末尾 keepLastN 条移到 toKeep
+        while (toSummarize.size() > keepLastN) {
+            toKeep.add(toSummarize.remove(toSummarize.size() - 1));
+        }
+        // 恢复 toKeep 顺序
+        Collections.reverse(toKeep);
+
+        if (toSummarize.isEmpty()) {
+            return;
+        }
+
+        ConversationSummary summary = compactor.compact(toSummarize);
+        if (summary == null || summary.getContent() == null || summary.getContent().isEmpty()) {
+            return;
+        }
+
+        this.currentSummary = summary;
+        if (this.conversationState != null) {
+            this.conversationState.setSummary(summary);
+        }
+
+        // 重建消息列表：system + 摘要注入 + 保留消息
+        messages = new ArrayList<>();
+        if (!systemMessages.isEmpty()) {
+            Map<String, Object> sys = new HashMap<>(systemMessages.get(0));
+            injectSummaryIntoSystemMessage(sys, summary.getContent());
+            messages.add(sys);
+        }
+        messages.addAll(toKeep);
+    }
+
+    /** 检查并自动压缩上下文（当占用超过阈值时）。 */
+    private void checkAndAutoCompact() {
+        int limit = config.getMaxContextSize();
+        if (limit <= 0 || compactor == null) {
+            return;
+        }
+        int current = getCurrentTokenCount();
+        if (current > limit * 0.8) {
+            compact(2); // 自动压缩时保留最近 2 轮
+        }
     }
 
     /** 将等待中的用户消息注入消息历史并通知钩子。 */
@@ -265,6 +387,20 @@ public class AgentLoop {
                 h.onUserMessageInjected(msg);
             }
         }
+    }
+
+    private static final String SUMMARY_MARKER = "\n\n## 对话摘要\n";
+
+    private void injectSummaryIntoSystemMessage(Map<String, Object> systemMsg, String summary) {
+        String content = (String) systemMsg.get("content");
+        if (content == null) content = "";
+        int idx = content.indexOf(SUMMARY_MARKER);
+        if (idx >= 0) {
+            content = content.substring(0, idx) + SUMMARY_MARKER + summary;
+        } else {
+            content = content + SUMMARY_MARKER + summary;
+        }
+        systemMsg.put("content", content);
     }
 
     /** 首次调用初始化消息列表，后续调用追加用户消息（支持多轮对话持久化） */

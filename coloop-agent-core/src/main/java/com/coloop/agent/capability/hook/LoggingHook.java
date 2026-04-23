@@ -3,11 +3,27 @@ package com.coloop.agent.capability.hook;
 import com.coloop.agent.core.agent.AgentHook;
 import com.coloop.agent.core.provider.LLMResponse;
 import com.coloop.agent.core.provider.ToolCallRequest;
+import com.coloop.agent.core.util.TokenEstimator;
+import com.coloop.agent.runtime.config.AppConfig;
 
 import java.util.List;
 import java.util.Map;
 
 public class LoggingHook implements AgentHook {
+
+    private final AppConfig config;
+    private int lastTokenCount = 0;
+    private int lastContextLimit = 0;
+    private int lastUsagePercent = 0;
+
+    public LoggingHook() {
+        this(null);
+    }
+
+    public LoggingHook(AppConfig config) {
+        this.config = config;
+    }
+
     @Override
     public void onLoopStart(String userMessage) {
         System.out.println("[USER INPUT] " + userMessage);
@@ -15,7 +31,14 @@ public class LoggingHook implements AgentHook {
 
     @Override
     public void beforeLLMCall(List<Map<String, Object>> messages) {
-//        System.out.println("[LOG] Before LLM call, messages: " + messages.size());
+        lastTokenCount = TokenEstimator.estimate(messages);
+        lastContextLimit = config != null ? config.getMaxContextSize() : 0;
+        if (lastContextLimit > 0) {
+            lastUsagePercent = Math.min(100, (int) ((lastTokenCount * 100L) / lastContextLimit));
+        } else {
+            lastUsagePercent = 0;
+        }
+        System.out.println("[CONTEXT] " + lastTokenCount + "/" + lastContextLimit + " tokens (" + lastUsagePercent + "%)");
     }
 
     @Override

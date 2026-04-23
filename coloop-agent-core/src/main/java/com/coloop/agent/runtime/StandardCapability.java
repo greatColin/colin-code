@@ -7,6 +7,7 @@ import com.coloop.agent.capability.mcp.McpCapability;
 import com.coloop.agent.capability.prompt.AgentsMdPromptPlugin;
 import com.coloop.agent.capability.prompt.BasePromptPlugin;
 import com.coloop.agent.capability.prompt.SkillPromptPlugin;
+import com.coloop.agent.capability.prompt.SummaryPromptPlugin;
 import com.coloop.agent.capability.tool.exec.ExecTool;
 import com.coloop.agent.capability.tool.filesystem.ReadFileTool;
 import com.coloop.agent.capability.tool.filesystem.WriteFileTool;
@@ -54,7 +55,7 @@ public enum StandardCapability {
         new Function<AppConfig, Object>() {
             @Override
             public Object apply(AppConfig config) {
-                return new ClaudeCodeStyleLoggingHook();
+                return new ClaudeCodeStyleLoggingHook(config);
             }
         }
     ),
@@ -115,6 +116,17 @@ public enum StandardCapability {
             @Override
             public Object apply(AppConfig config) {
                 return new McpCapability(config);
+            }
+        }
+    ),
+
+    SUMMARY_PROMPT(
+        "summary_prompt", "摘要提示词", "将上下文压缩后的摘要注入系统提示",
+        CapabilityType.PROMPT_PLUGIN,
+        new Function<AppConfig, Object>() {
+            @Override
+            public Object apply(AppConfig config) {
+                return new SummaryPromptPlugin();
             }
         }
     ),

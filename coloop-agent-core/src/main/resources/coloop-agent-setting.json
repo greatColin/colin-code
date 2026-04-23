@@ -11,12 +11,14 @@
     "glm-4-free": {
       "apiKey": "${COLIN_CODE_GLM_API_KEY}",
       "apiBase": "https://open.bigmodel.cn/api/paas/v4",
-      "model": "GLM-4.7-Flash"
+      "model": "GLM-4.7-Flash",
+      "maxContextSize": "100k"
     },
     "minimax": {
       "apiKey": "${COLIN_CODE_MINIMAX_API_KEY}",
       "apiBase": "https://api.minimaxi.com/v1",
-      "model": "MiniMax-M2.7"
+      "model": "MiniMax-M2.7",
+      "maxContextSize": "200k"
     }
   },
   "mcpServers": {
