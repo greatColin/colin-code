@@ -153,7 +153,7 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
 | **纯 Java 生态** | 对 Java 开发者友好，便于在企业级 Java 环境中集成 |
 | **清晰的插件边界** | `Tool` / `PromptPlugin` / `AgentHook` / `InputInterceptor` 接口明确，扩展不侵入核心 |
 | **环境感知提示** | BasePrompt 自动注入时间、OS、工作目录，减少 LLM 的”幻觉” |
-| **流式输出就绪** | 后端 SSE 流式已完整实现（`chatStream()` + `StreamConsumer`）；前端集成进行中 |
+| **流式输出就绪** | 后端 SSE 流式已完整实现（`chatStream()` + `StreamConsumer`）；前端 Markdown 渲染、代码高亮、`<think>` 标签分离已完成 |
 
 ### 我们缺失的（对 Vibe Coding / Spec Coding 有高价值）
 
@@ -178,8 +178,8 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
 | 缺失能力 | 影响说明 | 优先级 |
 |----------|----------|--------|
 | **流式输出（前端）** | 后端已支持 SSE，但 `AgentService` 仍调用同步 `chat()`，UI 一次性渲染完整回复 | P0 |
-| **Markdown 渲染** | AI 回复是纯文本，未渲染粗体、列表、链接、表格、代码块等 | P0 |
-| **代码语法高亮** | 助手回复和工具结果中的代码片段无高亮 | P0 |
+| **Markdown 渲染** | ✅ 已实现：集成 `marked.js` 渲染粗体、列表、链接、表格、代码块；`<think>` 标签提取为可折叠卡片 | P0 |
+| **代码语法高亮** | ✅ 已实现：集成 `highlight.js`，全部 9 套主题均适配代码块样式 | P0 |
 | **命令系统** | ✅ 已实现：`Command` 接口 + `CommandRegistry` + `CommandInterceptor`；内置 `/exit`、`/new`、`/compact`、`/model`、`/help`；支持从 `~/.coloop/commands/` 和 `./.coloop/commands/` 扫描用户自定义命令 | P1 |
 | **斜杠命令自动补全** | ✅ 已实现：后端在 WebSocket 连接时推送可用命令列表；前端输入 `/` 弹出模糊匹配的命令面板并显示描述；支持键盘上下选择、Enter 确认、Esc 关闭 | P1 |
 | **会话历史侧边栏** | 仅有一个内存会话，刷新页面即丢失，无 localStorage 持久化 | P1 |
@@ -213,7 +213,7 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
 4. **Web UI 基础** ✅
    - 基于 WebSocket 的实时聊天界面
    - Thinking、Tool Call、Tool Result 可折叠卡片
-   - 8 套主题 + 主题画廊
+   - 9 套主题 + 主题画廊
    - 自动重连与连接状态指示
 
 ### 阶段二：前端基础 + 命令系统（当前重点）
@@ -229,11 +229,12 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
    - `AgentService` 从 `agentLoop.chat()` 切换到 `agentLoop.chatStream()`
    - 扩展 `WebSocketLoggingHook`，新增 `onStreamChunk()` 将 SSE 片段通过 WebSocket 推送（`type: stream_chunk`）
    - 前端 `chat.js`：实时追加文本块到渐增的助手消息气泡，循环结束时完成渲染
-7. **Markdown 渲染 + 代码高亮**
-   - 前端引入 `marked.js` 渲染助手消息
-   - 引入 `highlight.js` 做代码块语法高亮
-   - 对渲染的 HTML 做 XSS 过滤
-   - 所有 9 套主题补充代码块样式
+7. **Markdown 渲染 + 代码高亮** ✅ 已完成
+   - ✅ 前端引入 `marked.js` 渲染助手消息
+   - ✅ 引入 `highlight.js` 做代码块语法高亮
+   - ✅ 使用 `DOMPurify` 对渲染的 HTML 做 XSS 过滤
+   - ✅ `<think>` 标签提取为可折叠 Thinking Card
+   - ✅ 全部 9 套主题补充 Markdown 元素与代码块样式
 8. **斜杠命令自动补全** ✅ 已完成
    - ✅ 后端在 WebSocket 连接时推送可用命令列表
    - ✅ 前端输入 `/` 弹出模糊匹配的命令面板，显示描述

@@ -153,7 +153,7 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
 | **Pure Java Ecosystem** | Friendly to Java developers; easy to integrate into enterprise Java environments |
 | **Clear Plugin Boundaries** | `Tool` / `PromptPlugin` / `AgentHook` / `InputInterceptor` interfaces are explicit; extensions do not invade the core |
 | **Environment-Aware Prompts** | BasePrompt auto-injects time, OS, and working directory to reduce LLM hallucinations |
-| **Streaming Ready** | Backend SSE streaming is fully implemented (`chatStream()` + `StreamConsumer`); frontend integration is in progress |
+| **Streaming Ready** | Backend SSE streaming fully implemented (`chatStream()` + `StreamConsumer`); frontend Markdown rendering, code highlighting, and `<think>` tag extraction delivered |
 
 ### What We Are Missing (High Value for Vibe / Spec Coding)
 
@@ -178,8 +178,8 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
 | Missing Capability | Impact | Priority |
 |--------------------|--------|----------|
 | **Streaming Output (Frontend)** | Backend supports SSE streaming, but `AgentService` still uses sync `chat()`; UI renders full response at once | P0 |
-| **Markdown Rendering** | AI responses are raw text; no bold, lists, links, tables, or code blocks rendered | P0 |
-| **Code Syntax Highlighting** | Code snippets in assistant replies and tool results have no highlighting | P0 |
+| **Markdown Rendering** | ✅ Done: `marked.js` integration renders bold, lists, links, tables, code blocks; `<think>` tags extracted into collapsible cards | P0 |
+| **Code Syntax Highlighting** | ✅ Done: `highlight.js` integration with theme-aware styling across all 9 themes | P0 |
 | **Command System** | ✅ Done: Dynamic `Command` interface + `CommandRegistry`; built-in `/exit`, `/new`, `/compact`, `/model`, `/help`; user-defined command scanning from `~/.coloop/commands/` and `./.coloop/commands/` | P1 |
 | **Slash Command Autocomplete** | ✅ Done: Backend pushes available command list on WebSocket connect; frontend pops up fuzzy-matched command palette with descriptions; keyboard navigation supported | P1 |
 | **Session History Sidebar** | Only one in-memory session exists; refreshing the page loses everything; no localStorage persistence | P1 |
@@ -213,7 +213,7 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
 4. **Web UI Foundation** ✅
    - WebSocket-based real-time chat interface
    - Collapsible cards for thinking, tool calls, and tool results
-   - Theme system with 8 distinct themes + theme gallery
+   - Theme system with 9 distinct themes + theme gallery
    - Auto-reconnect and connection status indicator
 
 ### Phase 2: Frontend Foundation + Command System (Current Focus)
@@ -229,11 +229,12 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
    - Switch `AgentService` from `agentLoop.chat()` to `agentLoop.chatStream()`
    - Extend `WebSocketLoggingHook` with `onStreamChunk()` to push SSE fragments via WebSocket (`type: stream_chunk`)
    - Frontend `chat.js`: append chunks in real time to a growing assistant message bubble, finalize on loop end
-7. **Markdown Rendering + Code Highlighting**
-   - Integrate `marked.js` for assistant message rendering
-   - Integrate `highlight.js` for code block syntax highlighting
-   - XSS sanitization for rendered HTML
-   - Theme-aware code block styling in all 9 themes
+7. **Markdown Rendering + Code Highlighting** ✅ Done
+   - ✅ Integrate `marked.js` for assistant message rendering
+   - ✅ Integrate `highlight.js` for code block syntax highlighting
+   - ✅ XSS sanitization with `DOMPurify`
+   - ✅ `<think>` tag extraction into collapsible thinking cards
+   - ✅ Theme-aware code block styling in all 9 themes
 8. **Slash Command Autocomplete** ✅ Done
    - ✅ Backend pushes available command list on WebSocket connect
    - ✅ Frontend: typing `/` pops up a fuzzy-matched command palette with descriptions
