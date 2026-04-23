@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>渲染测试 - coloop-agent</title>
+    <link rel="stylesheet" href="themes/claude.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.5/dist/purify.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js"></script>
+    <style>
+        .test-suite { padding: 20px; max-width: 900px; margin: 0 auto; }
+        .test-case { margin-bottom: 30px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; }
+        .test-title { font-weight: 600; font-size: 16px; margin-bottom: 8px; color: #374151; }
+        .test-status { font-size: 12px; padding: 2px 8px; border-radius: 12px; display: inline-block; margin-bottom: 12px; }
+        .test-status.pass { background: #d4edda; color: #155724; }
+        .test-status.fail { background: #fee2e2; color: #991b1b; }
+        .test-input { background: #f9fafb; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 12px; margin-bottom: 12px; white-space: pre-wrap; }
+        .test-output { border: 1px dashed #d1d5db; border-radius: 6px; padding: 10px; }
+        .assertion { font-size: 12px; margin-top: 8px; }
+        .assertion.pass { color: #059669; }
+        .assertion.fail { color: #dc2626; }
+    </style>
+</head>
+<body>
+    <div class="test-suite">
+        <h1>Web 消息渲染测试</h1>
+        <div id="test-results"></div>
+    </div>
+
+    <script>
+        function extractThinkBlocks(content) {
+            if (!content) return { thinkContent: '', remainingContent: '' };
+            var thinkRegex = /<think>([\s\S]*?)<\/think>/gi;
+            var thinkParts = [];
+            var match;
+            while ((match = thinkRegex.exec(content)) !== null) {
+                thinkParts.push(match[1].trim());
+            }
+            var remainingContent = content.replace(thinkRegex, '').trim();
+            return {
+                thinkContent: thinkParts.join('\n\n'),
+                remainingContent: remainingContent
+            };
+        }
+
+        function renderMarkdown(content) {
+            if (!content) return '';
+            if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
+                return content.replace(/&/g, '&amp;')
+                              .replace(/</g, '&lt;')
+                              .replace(/>/g, '&gt;')
+                              .replace(/\n/g, '<br>');
+            }
+            marked.setOptions({ breaks: true, gfm: true, headerIds: false, mangle: false });
+            var rawHtml = marked.parse(content);
+            var safeHtml = DOMPurify.sanitize(rawHtml, {
+                ALLOWED_TAGS: ['p','br','hr','h1','h2','h3','h4','h5','h6','ul','ol','li','strong','em','del','code','pre','a','img','blockquote','table','thead','tbody','tr','th','td','div','span'],
+                ALLOWED_ATTR: ['href','src','alt','title','class','target']
+            });
+            return safeHtml;
+        }
+
+        function highlightCodeBlocks(container) {
+            if (typeof hljs === 'undefined') return;
+            container.querySelectorAll('pre code').forEach(function(block) {
+                hljs.highlightElement(block);
+            });
+        }
+
+        var testResults = [];
+        var container = document.getElementById('test-results');
+
+        function runTest(name, input, assertions) {
+            var testDiv = document.createElement('div');
+            testDiv.className = 'test-case';
+
+            var title = document.createElement('div');
+            title.className = 'test-title';
+            title.textContent = name;
+            testDiv.appendChild(title);
+
+            var inputDiv = document.createElement('div');
+            inputDiv.className = 'test-input';
+            inputDiv.textContent = typeof input === 'string' ? input : JSON.stringify(input, null, 2);
+            testDiv.appendChild(inputDiv);
+
+            var outputDiv = document.createElement('div');
+            outputDiv.className = 'test-output';
+
+            var result;
+            if (typeof input === 'string') {
+                var extracted = extractThinkBlocks(input);
+                var html = renderMarkdown(extracted.remainingContent);
+                outputDiv.innerHTML = html;
+                highlightCodeBlocks(outputDiv);
+                result = { html: html, thinkContent: extracted.thinkContent, remainingContent: extracted.remainingContent };
+            } else {
+                result = input;
+            }
+            testDiv.appendChild(outputDiv);
+
+            var allPass = true;
+            assertions.forEach(function(assert) {
+                var pass = assert.fn(result, outputDiv);
+                var assertDiv = document.createElement('div');
+                assertDiv.className = 'assertion ' + (pass ? 'pass' : 'fail');
+                assertDiv.textContent = (pass ? 'PASS' : 'FAIL') + ': ' + assert.desc;
+                testDiv.appendChild(assertDiv);
+                if (!pass) allPass = false;
+            });
+
+            var status = document.createElement('span');
+            status.className = 'test-status ' + (allPass ? 'pass' : 'fail');
+            status.textContent = allPass ? '通过' : '失败';
+            testDiv.insertBefore(status, inputDiv);
+
+            container.appendChild(testDiv);
+            testResults.push({ name: name, pass: allPass });
+        }
+
+        runTest('换行保留', '第一行\n第二行\n第三行', [
+            { desc: '输出包含 <p> 标签', fn: function(r) { return r.html.indexOf('<p>') !== -1; } },
+            { desc: '输出包含 "第一行" 文本', fn: function(r) { return r.html.indexOf('第一行') !== -1; } }
+        ]);
+
+        runTest('Think 提取', '<think>推理中...\n步骤1</think>\n最终答案是 42', [
+            { desc: 'thinkContent 不为空', fn: function(r) { return r.thinkContent.length > 0; } },
+            { desc: 'thinkContent 包含 "推理中"', fn: function(r) { return r.thinkContent.indexOf('推理中') !== -1; } },
+            { desc: 'remainingContent 包含 "42"', fn: function(r) { return r.remainingContent.indexOf('42') !== -1; } },
+            { desc: 'remainingContent 不含 think 标签', fn: function(r) { return r.remainingContent.indexOf('<think>') === -1; } }
+        ]);
+
+        runTest('Markdown 粗体', '这是 **粗体** 文字', [
+            { desc: '输出包含 <strong> 标签', fn: function(r) { return r.html.indexOf('<strong>') !== -1; } }
+        ]);
+
+        runTest('代码块', '```java\nclass Hello {\n    public static void main(String[] args) {\n        System.out.println("Hello");\n    }\n}\n```', [
+            { desc: '输出包含 <code> 标签', fn: function(r) { return r.html.indexOf('<code>') !== -1; } },
+            { desc: '输出包含 <pre> 标签', fn: function(r) { return r.html.indexOf('<pre>') !== -1; } },
+            { desc: '输出包含 "Hello" 文本', fn: function(r) { return r.html.indexOf('Hello') !== -1; } }
+        ]);
+
+        runTest('XSS 防护', '<script>alert(1)</script> 正常文字', [
+            { desc: '输出不含 <script> 标签', fn: function(r) { return r.html.indexOf('<script>') === -1; } },
+            { desc: '输出包含 "正常文字"', fn: function(r) { return r.html.indexOf('正常文字') !== -1; } }
+        ]);
+
+        runTest('多 Think 块合并', '<think>思考A</think>中间内容<think>思考B</think>结尾', [
+            { desc: 'thinkContent 包含 "思考A"', fn: function(r) { return r.thinkContent.indexOf('思考A') !== -1; } },
+            { desc: 'thinkContent 包含 "思考B"', fn: function(r) { return r.thinkContent.indexOf('思考B') !== -1; } },
+            { desc: 'remainingContent 是 "中间内容 结尾"', fn: function(r) { return r.remainingContent.replace(/\s+/g, ' ').trim() === '中间内容 结尾'; } }
+        ]);
+
+        var passed = testResults.filter(function(t) { return t.pass; }).length;
+        var summary = document.createElement('div');
+        summary.style.cssText = 'margin-top:20px; padding:16px; border-radius:8px; font-weight:600;';
+        summary.style.background = passed === testResults.length ? '#d4edda' : '#fee2e2';
+        summary.style.color = passed === testResults.length ? '#155724' : '#991b1b';
+        summary.textContent = '测试结果: ' + passed + '/' + testResults.length + ' 通过';
+        container.insertBefore(summary, container.firstChild);
+    </script>
+</body>
+</html>
