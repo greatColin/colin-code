@@ -71,6 +71,14 @@
     let availableCommands = [];
     let selectedSuggestionIndex = -1;
 
+    // --- Streaming state ---
+    let currentAssistantEl = null;
+    let streamBuffer = '';
+    let lastRenderTime = 0;
+    const STREAM_RENDER_INTERVAL = 100;   // ms
+    const STREAM_RENDER_MIN_CHARS = 50;   // chars
+    let streamRenderTimer = null;
+
     function connect() {
         updateStatus('connecting', '连接中...');
         ws = new WebSocket(wsUrl);
@@ -131,8 +139,11 @@
             case 'tool_result':
                 renderToolResult(msg.payload);
                 break;
+            case 'stream_chunk':
+                appendStreamChunk(msg.payload.content);
+                break;
             case 'assistant':
-                renderAssistant(msg.payload.content);
+                finalizeAssistant(msg.payload.content);
                 break;
             case 'system':
                 renderSystem(msg.payload.message);
@@ -163,23 +174,71 @@
         appendElement(el);
     }
 
-    function renderAssistant(content) {
-        // Extract think blocks from content
-        var extracted = extractThinkBlocks(content || '');
+    function appendStreamChunk(chunk) {
+        if (!chunk) return;
+
+        if (!currentAssistantEl) {
+            currentAssistantEl = document.createElement('div');
+            currentAssistantEl.className = 'message assistant';
+            currentAssistantEl.innerHTML = '<span class="stream-cursor"></span>';
+            appendElement(currentAssistantEl);
+        }
+
+        streamBuffer += chunk;
+
+        var now = Date.now();
+        if (now - lastRenderTime > STREAM_RENDER_INTERVAL || streamBuffer.length > STREAM_RENDER_MIN_CHARS) {
+            renderStreamBuffer();
+        } else if (!streamRenderTimer) {
+            streamRenderTimer = setTimeout(function() {
+                renderStreamBuffer();
+            }, STREAM_RENDER_INTERVAL);
+        }
+
+        scrollToBottom();
+    }
+
+    function renderStreamBuffer() {
+        if (!currentAssistantEl) return;
+
+        lastRenderTime = Date.now();
+        streamRenderTimer = null;
+
+        var html = renderMarkdown(streamBuffer);
+        currentAssistantEl.innerHTML = html + '<span class="stream-cursor"></span>';
+        highlightCodeBlocks(currentAssistantEl);
+    }
+
+    function finalizeAssistant(fullContent) {
+        // Clear any pending render timer
+        if (streamRenderTimer) {
+            clearTimeout(streamRenderTimer);
+            streamRenderTimer = null;
+        }
+
+        // Extract think blocks from the full content
+        var extracted = extractThinkBlocks(fullContent || '');
 
         // Render think content as a thinking card (if any)
         if (extracted.thinkContent) {
             renderCard('thinking', '💭 Thinking', extracted.thinkContent);
         }
 
-        // Render remaining content as markdown
-        var el = document.createElement('div');
-        el.className = 'message assistant';
-        el.innerHTML = renderMarkdown(extracted.remainingContent);
-        appendElement(el);
-
-        // Apply syntax highlighting to code blocks
-        highlightCodeBlocks(el);
+        if (currentAssistantEl) {
+            // Update with final rendered content (no cursor)
+            var html = renderMarkdown(extracted.remainingContent);
+            currentAssistantEl.innerHTML = html;
+            highlightCodeBlocks(currentAssistantEl);
+            currentAssistantEl = null;
+            streamBuffer = '';
+        } else {
+            // Fallback: no stream chunks received, render as before
+            var el = document.createElement('div');
+            el.className = 'message assistant';
+            el.innerHTML = renderMarkdown(extracted.remainingContent);
+            appendElement(el);
+            highlightCodeBlocks(el);
+        }
     }
 
     function renderLoopStart(attempt) {
