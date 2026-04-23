@@ -167,6 +167,9 @@ public class AgentLoop {
                     if (consumer != null) {
                         consumer.onContent(chunk);
                     }
+                    for (AgentHook h : hooks) {
+                        h.onStreamChunk(chunk);
+                    }
                 }
 
                 @Override
