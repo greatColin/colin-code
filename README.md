@@ -42,6 +42,12 @@ com.coloop.agent
 │   │   ├── Tool.java           ← Tool contract
 │   │   ├── BaseTool.java
 │   │   └── ToolRegistry.java   ← Tool registration & dispatch
+│   ├── command/                ← Command system core interfaces
+│   │   ├── Command.java
+│   │   ├── CommandRegistry.java
+│   │   ├── CommandContext.java
+│   │   ├── CommandResult.java
+│   │   └── CommandExitException.java
 │   └── interceptor/
 │       └── InputInterceptor.java ← Pre-LLM input shortcut interceptor
 ├── capability/                 ← Pluggable implementations
@@ -60,8 +66,16 @@ com.coloop.agent
 │   ├── tool/
 │   │   └── exec/
 │   │       └── ExecTool.java
-│   └── hook/
-│       └── LoggingHook.java
+│   ├── hook/
+│   │   └── LoggingHook.java
+│   └── command/                ← Command system implementations
+│       ├── CommandInterceptor.java     ← InputInterceptor implementation
+│       ├── CommandScanner.java         ← User-defined command directory scanner
+│       ├── ExitCommand.java
+│       ├── NewSessionCommand.java
+│       ├── CompactCommand.java
+│       ├── ModelCommand.java
+│       └── HelpCommand.java
 ├── runtime/                    ← Assembly hub
 │   ├── CapabilityLoader.java   ← Fluent chain builder
 │   ├── StandardCapability.java ← Built-in capability catalog
@@ -91,6 +105,7 @@ new CapabilityLoader()
 | **SkillPromptPlugin** | Scans and injects available skill descriptions into the system prompt |
 | **AgentsMdPromptPlugin** | Auto-reads `AGENTS.md` from the working directory and injects it |
 | **LoggingHook** | Prints debug logs at key Agent Loop lifecycle nodes |
+| **Command System** | Dynamic `Command` interface + `CommandRegistry`; built-in `/exit`, `/new-session`, `/compact`, `/model`, `/help`; user-defined command scanning from `~/.coloop/commands/` |
 
 ### 5. Input Interceptor (`InputInterceptor`)
 Intercepts user input before the LLM call. Useful for shortcuts (e.g. `/compact`), skill routing, permission checks, and other direct-return features.
@@ -205,6 +220,7 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
    - ✅ Implement `/compact`, `/model`, and other built-in commands
    - ✅ Directory scanning for user-defined commands (e.g. `~/.coloop/commands/`)
    - ✅ Wire `CommandInterceptor` into `InputInterceptor` so `CapabilityLoader` can assemble it
+   - ✅ 86 unit tests covering core interfaces, all command implementations, interceptor logic, scanner, and runtime integration
 6. **Streaming Output (Frontend)**
    - Switch `AgentService` from `agentLoop.chat()` to `agentLoop.chatStream()`
    - Extend `WebSocketLoggingHook` with `onStreamChunk()` to push SSE fragments to the browser
