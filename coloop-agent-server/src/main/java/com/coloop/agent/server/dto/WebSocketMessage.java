@@ -96,6 +96,10 @@ public class WebSocketMessage {
         return new WebSocketMessage("context_usage", payload);
     }
 
+    public static WebSocketMessage newSession() {
+        return new WebSocketMessage("new_session", new HashMap<>());
+    }
+
     public String getType() {
         return type;
     }

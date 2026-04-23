@@ -154,6 +154,9 @@
             case 'context_usage':
                 updateContextBar(msg.payload);
                 break;
+            case 'new_session':
+                renderNewSession();
+                break;
             case 'commands':
                 availableCommands = (msg.payload && msg.payload.commands) || [];
                 console.log('[Commands] Loaded', availableCommands.length, 'commands:', availableCommands.map(function(c) { return c.name; }));
@@ -250,6 +253,14 @@
             appendElement(el);
             highlightCodeBlocks(el);
         }
+    }
+
+    function renderNewSession() {
+        if (chatContainer.children.length === 0) return;
+        const el = document.createElement('div');
+        el.className = 'message loop-start';
+        el.textContent = '────────── New Session ──────────';
+        appendElement(el);
     }
 
     function renderLoopStart(attempt) {

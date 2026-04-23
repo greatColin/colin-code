@@ -1,5 +1,6 @@
 package com.coloop.agent.server.websocket;
 
+import com.coloop.agent.server.dto.WebSocketMessage;
 import com.coloop.agent.server.service.AgentService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,6 +24,12 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         System.out.println("[WebSocket] Connected: " + session.getId());
+        try {
+            String json = objectMapper.writeValueAsString(WebSocketMessage.newSession());
+            session.sendMessage(new TextMessage(json));
+        } catch (Exception e) {
+            System.err.println("[WebSocket] Failed to send new_session: " + e.getMessage());
+        }
         agentService.sendAvailableCommands(session);
     }
 
