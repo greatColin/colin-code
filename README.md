@@ -193,7 +193,7 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
 | **Parallel Tool Calls** | OpenAI API supports multiple tool calls per turn, but we execute them serially | P1 |
 | **Git Integration** | Cannot auto-check diff, status, generate commit messages, or create branches | P1 |
 | **Checkpoint / Rollback** | No snapshot-and-revert of code changes like Aider | P2 |
-| **MCP (Model Context Protocol) Support** | Cannot connect to external data sources, databases, or document systems | P2 |
+| **MCP (Model Context Protocol) Support** | ✅ Done: `McpClient` via STDIO + JSON-RPC; `McpCapability` exposes remote tools as local Tools | P2 |
 | **Verify-Before-Completion Loop** | Does not auto-compile / run / test after code changes to self-verify correctness | P2 |
 | **Multi-Agent Coordination** | Single loop handles everything; no Planner + Executor + Reviewer collaboration | P2 |
 | **Browser / Screenshot Capability** | Cannot validate Web UI effects, limiting frontend dev scenarios | P3 |
@@ -315,8 +315,10 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
 20. **Verification Loop**
     - Auto-run `mvn compile` or test suite after code changes
     - Feed errors back to the LLM for automatic fixing
-21. **MCP Client Support**
-    - Connect to external MCP servers to extend tool boundaries
+21. ✅ **MCP Client Support**
+    - `McpClient` connects via STDIO transport with JSON-RPC protocol
+    - `McpCapability` registers remote tools into local `ToolRegistry` automatically
+    - Configurable via `AppConfig.mcpServers` (command, args, env)
 
 ### Phase 5: Ecosystem & Extensibility
 22. **Checkpoint & Rollback**

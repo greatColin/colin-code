@@ -193,7 +193,7 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
 | **并行 Tool Calls** | OpenAI API 支持一次请求返回多个 tool call，但我们目前串行执行 | P1 |
 | **Git 集成** | 无法自动查看 diff、status、生成 commit message、创建分支 | P1 |
 | **Checkpoint / 回滚** | 无法像 Aider 一样对代码变更做快照和撤销 | P2 |
-| **MCP（Model Context Protocol）支持** | 无法接入外部数据源、数据库、文档系统等标准化接口 | P2 |
+| **MCP（Model Context Protocol）支持** | ✅ 已实现：`McpClient` 通过 STDIO + JSON-RPC 连接；`McpCapability` 将远程工具暴露为本地 Tool | P2 |
 | **验证循环（Verify-before-completion）** | 改完代码后不自动编译/运行/测试，无法自证正确性 | P2 |
 | **多 Agent 协调** | 单一 Loop 完成所有任务，无法拆分为 Planner + Executor + Reviewer 协作 | P2 |
 | **浏览器/截图能力** | 无法验证 Web UI 效果，限制前端开发场景 | P3 |
@@ -315,8 +315,10 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
 20. **验证循环**
     - 代码修改后自动执行 `mvn compile` 或测试套件
     - 失败时将错误信息自动回传给 LLM 进行修复
-21. **MCP Client 支持**
-    - 接入外部 MCP Server，扩展工具边界
+21. ✅ **MCP Client 支持**
+    - `McpClient` 通过 STDIO 传输 + JSON-RPC 协议连接 MCP Server
+    - `McpCapability` 自动将远程工具注册到本地 `ToolRegistry`
+    - 通过 `AppConfig.mcpServers` 配置（command、args、env）
 
 ### 阶段五：生态与可扩展性
 22. **Checkpoint 与回滚**
