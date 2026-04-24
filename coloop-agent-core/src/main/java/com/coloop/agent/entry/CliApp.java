@@ -41,6 +41,11 @@ public class CliApp {
         CommandScanner.scanUserCommands(cmdRegistry);
         CommandScanner.scanProjectCommands(cmdRegistry);
 
+        // 创建任务管理能力（用于提取 /tasks 命令）
+        com.coloop.agent.capability.task.TaskManagementCapability taskCap =
+            new com.coloop.agent.capability.task.TaskManagementCapability(config);
+        cmdRegistry.register(taskCap.getTasksCommand());
+
         CommandContext cmdCtx = new CommandContext(config);
         CommandInterceptor cmdInterceptor = new CommandInterceptor(cmdRegistry, cmdCtx);
 
@@ -57,6 +62,7 @@ public class CliApp {
             .withCapability(StandardCapability.SUMMARY_PROMPT, config)
             .withCapability(StandardCapability.LOGGING_HOOK, config)
             .withCapability(StandardCapability.MCP_CLIENT, config)
+            .withCapability(StandardCapability.TASK_MANAGEMENT, config)
             .withInterceptor(cmdInterceptor)
             .build(provider, config);
 
