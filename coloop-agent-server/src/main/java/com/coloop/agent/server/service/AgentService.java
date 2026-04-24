@@ -7,6 +7,7 @@ import com.coloop.agent.capability.command.ExitCommand;
 import com.coloop.agent.capability.command.HelpCommand;
 import com.coloop.agent.capability.command.ModelCommand;
 import com.coloop.agent.capability.command.NewSessionCommand;
+import com.coloop.agent.capability.command.StopCommand;
 import com.coloop.agent.capability.provider.openai.OpenAICompatibleProvider;
 import com.coloop.agent.core.agent.AgentLoop;
 import com.coloop.agent.core.command.CommandContext;
@@ -53,7 +54,13 @@ public class AgentService {
 
         synchronized (ctx) {
             if (ctx.isRunning && ctx.agentLoop != null) {
-                // 任务运行时拒绝命令（斜杠开头），普通消息注入当前循环
+                // /stop 可在 loop 运行时直接中断
+                if ("/stop".equals(trimmed)) {
+                    ctx.agentLoop.requestStop();
+                    sendSystem(session, "Stop requested.");
+                    return;
+                }
+                // 其他命令在任务运行时拒绝，普通消息注入当前循环
                 if (trimmed.startsWith("/")) {
                     sendSystem(session, "A task is currently running. Please wait for it to complete before executing commands.");
                     return;
@@ -77,6 +84,7 @@ public class AgentService {
                         CommandRegistry cmdRegistry = new CommandRegistry();
                         cmdRegistry.register(new ExitCommand());
                         cmdRegistry.register(new NewSessionCommand());
+                        cmdRegistry.register(new StopCommand());
                         cmdRegistry.register(new CompactCommand());
                         cmdRegistry.register(new ModelCommand());
                         cmdRegistry.register(new HelpCommand(cmdRegistry));
@@ -217,6 +225,7 @@ public class AgentService {
         CommandRegistry listRegistry = new CommandRegistry();
         listRegistry.register(new ExitCommand());
         listRegistry.register(new NewSessionCommand());
+        listRegistry.register(new StopCommand());
         listRegistry.register(new CompactCommand());
         listRegistry.register(new ModelCommand());
         listRegistry.register(new HelpCommand(listRegistry));

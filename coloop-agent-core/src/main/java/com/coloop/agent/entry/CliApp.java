@@ -7,6 +7,7 @@ import com.coloop.agent.capability.command.ExitCommand;
 import com.coloop.agent.capability.command.HelpCommand;
 import com.coloop.agent.capability.command.ModelCommand;
 import com.coloop.agent.capability.command.NewSessionCommand;
+import com.coloop.agent.capability.command.StopCommand;
 import com.coloop.agent.capability.provider.openai.OpenAICompatibleProvider;
 import com.coloop.agent.core.agent.AgentLoop;
 import com.coloop.agent.core.command.CommandContext;
@@ -35,6 +36,7 @@ public class CliApp {
         CommandRegistry cmdRegistry = new CommandRegistry();
         cmdRegistry.register(new ExitCommand());
         cmdRegistry.register(new NewSessionCommand());
+        cmdRegistry.register(new StopCommand());
         cmdRegistry.register(new CompactCommand());
         cmdRegistry.register(new ModelCommand());
         cmdRegistry.register(new HelpCommand(cmdRegistry));

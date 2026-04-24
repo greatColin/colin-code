@@ -45,6 +45,9 @@ public class AgentLoop {
     /** 运行中待注入的用户消息队列 */
     private final ConcurrentLinkedQueue<String> pendingUserMessages = new ConcurrentLinkedQueue<>();
 
+    /** 请求停止当前循环 */
+    private volatile boolean stopRequested = false;
+
     private ContextCompactor compactor;
     private ConversationState conversationState;
     private ConversationSummary currentSummary;
@@ -92,9 +95,17 @@ public class AgentLoop {
 
         // 3. 准备消息
         prepareMessages(userMessage);
+        stopRequested = false;
 
         // 4. 迭代循环
         for (int iter = 0; iter < config.getMaxIterations(); iter++) {
+            if (stopRequested) {
+                String stopMsg = "[Stopped by user]";
+                for (AgentHook h : hooks) {
+                    h.onLoopEnd(stopMsg);
+                }
+                return stopMsg;
+            }
             for (AgentHook h : hooks) {
                 h.beforeLLMCall(messages);
             }
@@ -164,8 +175,16 @@ public class AgentLoop {
         }
 
         prepareMessages(userMessage);
+        stopRequested = false;
 
         for (int iter = 0; iter < config.getMaxIterations(); iter++) {
+            if (stopRequested) {
+                String stopMsg = "[Stopped by user]";
+                for (AgentHook h : hooks) {
+                    h.onLoopEnd(stopMsg);
+                }
+                return stopMsg;
+            }
             for (AgentHook h : hooks) {
                 h.beforeLLMCall(messages);
             }
@@ -261,6 +280,16 @@ public class AgentLoop {
     /** 在运行中注入新的用户消息，将在下一轮 LLM 调用前加入消息历史。 */
     public void injectUserMessage(String userMessage) {
         pendingUserMessages.offer(userMessage);
+    }
+
+    /** 请求停止当前正在执行的循环。 */
+    public void requestStop() {
+        this.stopRequested = true;
+    }
+
+    /** 当前循环是否已被请求停止。 */
+    public boolean isStopRequested() {
+        return this.stopRequested;
     }
 
     /** 重置会话状态，清空消息历史和待注入消息队列。 */
