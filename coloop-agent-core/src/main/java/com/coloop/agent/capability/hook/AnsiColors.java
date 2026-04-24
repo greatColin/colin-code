@@ -138,7 +138,10 @@ public final class AnsiColors {
     
     /** Claude Code 错误/警告颜色 - 亮红色 */
     public static final String ERROR_COLOR = FG_BRIGHT_RED;
-    
+
+    /** Task progress color - cyan */
+    public static final String TASK_COLOR = FG_BRIGHT_CYAN;
+
     /** Claude Code 分隔线颜色 - 暗灰色 */
     public static final String SEPARATOR_COLOR = FG_WHITE;
 
