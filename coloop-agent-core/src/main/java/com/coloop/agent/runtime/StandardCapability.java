@@ -131,6 +131,17 @@ public enum StandardCapability {
         }
     ),
 
+    TASK_MANAGEMENT(
+        "task_management", "任务管理", "任务创建、更新、跟踪与展示",
+        CapabilityType.COMPOSITE,
+        new Function<AppConfig, Object>() {
+            @Override
+            public Object apply(AppConfig config) {
+                return new com.coloop.agent.capability.task.TaskManagementCapability(config);
+            }
+        }
+    ),
+
     // todo 实现
     SKILL_PROMPT(
             "skill_prompt", "技能提示词", "扫描并注入可用技能说明",

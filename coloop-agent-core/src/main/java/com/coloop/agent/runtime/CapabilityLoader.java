@@ -93,6 +93,17 @@ public class CapabilityLoader {
             case INTERCEPTOR:
                 withInterceptor((InputInterceptor) instance);
                 break;
+            case COMPOSITE:
+                if (instance instanceof com.coloop.agent.capability.task.TaskManagementCapability) {
+                    com.coloop.agent.capability.task.TaskManagementCapability tmc =
+                            (com.coloop.agent.capability.task.TaskManagementCapability) instance;
+                    for (Tool tool : tmc.getTools()) {
+                        withTool(tool);
+                    }
+                    withPromptPlugin(tmc.getPromptPlugin());
+                    withHook(tmc.getHook());
+                }
+                break;
             default:
                 break;
         }
