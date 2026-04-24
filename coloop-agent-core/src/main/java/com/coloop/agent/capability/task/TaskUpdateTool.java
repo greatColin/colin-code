@@ -23,7 +23,10 @@ public class TaskUpdateTool extends BaseTool {
 
     @Override
     public String getDescription() {
-        return "更新任务状态或信息。将任务设为 IN_PROGRESS 时，系统会自动完成之前进行中的任务。";
+        return "Update task status and information. You MUST update tasks as you progress. " +
+               "Mark a task IN_PROGRESS when you start working on it, COMPLETED when done. " +
+               "Setting a task to IN_PROGRESS automatically completes the previous IN_PROGRESS task. " +
+               "Use this VERY frequently to maintain an accurate view of your progress.";
     }
 
     @Override

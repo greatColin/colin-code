@@ -22,7 +22,7 @@ public class TaskGetTool extends BaseTool {
 
     @Override
     public String getDescription() {
-        return "获取单个任务的完整信息，包括依赖关系。";
+        return "Get the full details of a single task, including its dependencies.";
     }
 
     @Override

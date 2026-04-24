@@ -23,7 +23,7 @@ public class TaskListTool extends BaseTool {
 
     @Override
     public String getDescription() {
-        return "列出所有任务及其当前状态。通常不需要主动调用，因为系统提示词已包含当前任务列表。";
+        return "List all tasks and their current status. Use when you need to review the full task state.";
     }
 
     @Override

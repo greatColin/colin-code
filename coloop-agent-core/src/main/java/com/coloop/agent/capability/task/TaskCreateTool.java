@@ -22,7 +22,10 @@ public class TaskCreateTool extends BaseTool {
 
     @Override
     public String getDescription() {
-        return "创建新任务。当用户请求涉及多个文件或步骤时，主动创建任务列表来跟踪进度。";
+        return "Create tasks to track multi-step work. You MUST use this tool VERY frequently. " +
+               "Before starting ANY task that involves multiple files, tools, research, or steps, " +
+               "create a task list first. Break complex work into small concrete steps. " +
+               "This keeps the user informed and prevents mistakes.";
     }
 
     @Override

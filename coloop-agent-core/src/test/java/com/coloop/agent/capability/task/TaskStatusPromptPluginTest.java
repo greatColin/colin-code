@@ -11,13 +11,16 @@ import static org.junit.jupiter.api.Assertions.*;
 public class TaskStatusPromptPluginTest {
 
     @Test
-    public void testReturnsNullWhenNoTasks() {
+    public void testReturnsGuideWhenNoTasks() {
         TaskService service = new TaskService(new InMemoryTaskStore());
         TaskStatusPromptPlugin plugin = new TaskStatusPromptPlugin(service);
 
         String result = plugin.generate(new AppConfig(), Map.of());
 
-        assertNull(result);
+        assertNotNull(result);
+        assertTrue(result.contains("Task Management"));
+        assertTrue(result.contains("task_create"));
+        assertTrue(result.contains("No active tasks"));
     }
 
     @Test
@@ -30,7 +33,7 @@ public class TaskStatusPromptPluginTest {
         String result = plugin.generate(new AppConfig(), Map.of());
 
         assertNotNull(result);
-        assertTrue(result.contains("任务管理"));
+        assertTrue(result.contains("Task Management"));
         assertTrue(result.contains("task_create"));
         assertTrue(result.contains("[IN_PROGRESS]"));
         assertTrue(result.contains("读取配置"));
@@ -47,6 +50,6 @@ public class TaskStatusPromptPluginTest {
         TaskStatusPromptPlugin plugin = new TaskStatusPromptPlugin(service);
         String result = plugin.generate(new AppConfig(), Map.of());
 
-        assertTrue(result.contains("...及 5 个已完成任务"));
+        assertTrue(result.contains("...and 5 completed task(s)"));
     }
 }

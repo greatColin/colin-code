@@ -83,6 +83,11 @@ public class AgentService {
                         CommandScanner.scanUserCommands(cmdRegistry);
                         CommandScanner.scanProjectCommands(cmdRegistry);
 
+                        // 创建任务管理能力，提取 /tasks 命令注册到命令系统
+                        com.coloop.agent.capability.task.TaskManagementCapability taskCap =
+                                new com.coloop.agent.capability.task.TaskManagementCapability(config);
+                        cmdRegistry.register(taskCap.getTasksCommand());
+
                         CommandContext cmdCtx = new CommandContext(config, null);
                         cmdCtx.setAttribute("session", session);
                         cmdCtx.setAttribute("resetSession", (Runnable) () -> {
@@ -105,7 +110,7 @@ public class AgentService {
                                 .withCapability(StandardCapability.LOGGING_HOOK, config)
                                 .withCapability(StandardCapability.SUMMARY_PROMPT, config)
                                 .withCapability(StandardCapability.MCP_CLIENT, config)
-                                .withCapability(StandardCapability.TASK_MANAGEMENT, config)
+                                .withComposite(taskCap)
                                 .withHook(hook)
                                 .withInterceptor(cmdInterceptor)
                                 .build(provider, config);
