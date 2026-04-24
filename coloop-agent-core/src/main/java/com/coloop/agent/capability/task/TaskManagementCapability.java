@@ -4,11 +4,12 @@ import com.coloop.agent.capability.task.command.TasksCommand;
 import com.coloop.agent.core.agent.AgentHook;
 import com.coloop.agent.core.prompt.PromptPlugin;
 import com.coloop.agent.core.tool.Tool;
+import com.coloop.agent.runtime.CompositeCapability;
 import com.coloop.agent.runtime.config.AppConfig;
 
 import java.util.List;
 
-public class TaskManagementCapability {
+public class TaskManagementCapability implements CompositeCapability {
 
     private final TaskService taskService;
     private final TaskCreateTool taskCreateTool;
@@ -30,14 +31,17 @@ public class TaskManagementCapability {
         this.tasksCommand = new TasksCommand(taskService);
     }
 
+    @Override
     public List<Tool> getTools() {
         return List.of(taskCreateTool, taskListTool, taskGetTool, taskUpdateTool);
     }
 
+    @Override
     public PromptPlugin getPromptPlugin() {
         return promptPlugin;
     }
 
+    @Override
     public AgentHook getHook() {
         return displayHook;
     }

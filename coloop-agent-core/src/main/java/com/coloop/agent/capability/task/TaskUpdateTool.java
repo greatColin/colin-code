@@ -53,7 +53,12 @@ public class TaskUpdateTool extends BaseTool {
 
         TaskStatus status = null;
         if (statusStr != null) {
-            status = TaskStatus.valueOf(statusStr);
+            try {
+                status = TaskStatus.valueOf(statusStr);
+            } catch (IllegalArgumentException e) {
+                return "[Error: invalid status: " + statusStr
+                        + ". Valid values: PENDING, IN_PROGRESS, COMPLETED, DELETED]";
+            }
         }
 
         Task task = taskService.update(id, subject, description, status, blockedBy);

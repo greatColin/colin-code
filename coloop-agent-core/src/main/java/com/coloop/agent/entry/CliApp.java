@@ -41,7 +41,7 @@ public class CliApp {
         CommandScanner.scanUserCommands(cmdRegistry);
         CommandScanner.scanProjectCommands(cmdRegistry);
 
-        // 创建任务管理能力（用于提取 /tasks 命令）
+        // 创建任务管理能力（/tasks 命令和工具共享同一个 TaskService 实例）
         com.coloop.agent.capability.task.TaskManagementCapability taskCap =
             new com.coloop.agent.capability.task.TaskManagementCapability(config);
         cmdRegistry.register(taskCap.getTasksCommand());
@@ -50,7 +50,7 @@ public class CliApp {
         CommandInterceptor cmdInterceptor = new CommandInterceptor(cmdRegistry, cmdCtx);
 
         // 构建 AgentLoop
-        AgentLoop agentLoop = new CapabilityLoader()
+        CapabilityLoader loader = new CapabilityLoader()
             .withCapability(StandardCapability.EXEC_TOOL, config)
             .withCapability(StandardCapability.READ_FILE_TOOL, config)
             .withCapability(StandardCapability.WRITE_FILE_TOOL, config)
@@ -62,9 +62,12 @@ public class CliApp {
             .withCapability(StandardCapability.SUMMARY_PROMPT, config)
             .withCapability(StandardCapability.LOGGING_HOOK, config)
             .withCapability(StandardCapability.MCP_CLIENT, config)
-            .withCapability(StandardCapability.TASK_MANAGEMENT, config)
-            .withInterceptor(cmdInterceptor)
-            .build(provider, config);
+            .withInterceptor(cmdInterceptor);
+
+        // 复用已有的 taskCap 实例，确保 /tasks 命令和工具共享同一 TaskService
+        loader.withComposite(taskCap);
+
+        AgentLoop agentLoop = loader.build(provider, config);
 
         // 用户问答，允许追问
         LoopInputAgentRuntime runtime = new LoopInputAgentRuntime(agentLoop);

@@ -56,6 +56,17 @@ public class CapabilityLoader {
         return this;
     }
 
+    public CapabilityLoader withComposite(CompositeCapability composite) {
+        if (composite != null) {
+            for (Tool tool : composite.getTools()) {
+                withTool(tool);
+            }
+            withPromptPlugin(composite.getPromptPlugin());
+            withHook(composite.getHook());
+        }
+        return this;
+    }
+
     public CapabilityLoader withMessageBuilder(MessageBuilder messageBuilder) {
         this.messageBuilder = messageBuilder;
         return this;
@@ -94,14 +105,12 @@ public class CapabilityLoader {
                 withInterceptor((InputInterceptor) instance);
                 break;
             case COMPOSITE:
-                if (instance instanceof com.coloop.agent.capability.task.TaskManagementCapability) {
-                    com.coloop.agent.capability.task.TaskManagementCapability tmc =
-                            (com.coloop.agent.capability.task.TaskManagementCapability) instance;
-                    for (Tool tool : tmc.getTools()) {
+                if (instance instanceof CompositeCapability composite) {
+                    for (Tool tool : composite.getTools()) {
                         withTool(tool);
                     }
-                    withPromptPlugin(tmc.getPromptPlugin());
-                    withHook(tmc.getHook());
+                    withPromptPlugin(composite.getPromptPlugin());
+                    withHook(composite.getHook());
                 }
                 break;
             default:
