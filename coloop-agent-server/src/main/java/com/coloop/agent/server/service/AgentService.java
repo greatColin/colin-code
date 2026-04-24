@@ -96,6 +96,16 @@ public class AgentService {
 
                         CommandContext cmdCtx = new CommandContext(config, null);
                         cmdCtx.setAttribute("session", session);
+                        cmdCtx.setAttribute("streamChunkSender", (java.util.function.Consumer<String>) chunk -> {
+                            if (!session.isOpen()) return;
+                            try {
+                                WebSocketMessage msg = WebSocketMessage.streamChunk(chunk);
+                                String json = objectMapper.writeValueAsString(msg);
+                                session.sendMessage(new TextMessage(json));
+                            } catch (Exception e) {
+                                System.err.println("Failed to send plan stream chunk: " + e.getMessage());
+                            }
+                        });
                         cmdCtx.setAttribute("resetSession", (Runnable) () -> {
                             synchronized (ctx) {
                                 ctx.agentLoop = null;

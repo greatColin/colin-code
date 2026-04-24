@@ -11,8 +11,12 @@ import com.coloop.agent.core.command.CommandContext;
 import com.coloop.agent.core.command.CommandResult;
 import com.coloop.agent.core.context.ConversationState;
 import com.coloop.agent.core.provider.LLMProvider;
+import com.coloop.agent.core.provider.LLMResponse;
+import com.coloop.agent.core.provider.ToolCallRequest;
 import com.coloop.agent.runtime.CapabilityLoader;
 import com.coloop.agent.runtime.config.AppConfig;
+
+import java.util.function.Consumer;
 
 public class PlanCommand implements Command {
 
@@ -41,8 +45,32 @@ public class PlanCommand implements Command {
         // Step 1: Build isolated Plan Loop with read-only tools
         AgentLoop planLoop = buildPlanLoop();
 
-        // Step 2: Generate plan through the read-only loop
-        String plan = planLoop.chat(args);
+        // Step 2: Generate plan through the read-only loop with streaming
+        StringBuilder planBuilder = new StringBuilder();
+        Consumer<String> chunkSender = ctx.getAttribute("streamChunkSender");
+
+        planLoop.chatStream(args, new LLMProvider.StreamConsumer() {
+            @Override
+            public void onContent(String chunk) {
+                planBuilder.append(chunk);
+                if (chunkSender != null) {
+                    chunkSender.accept(chunk);
+                } else {
+                    System.out.print(chunk);
+                }
+            }
+
+            @Override
+            public void onToolCall(ToolCallRequest toolCall) {}
+
+            @Override
+            public void onComplete(LLMResponse response) {}
+
+            @Override
+            public void onError(String error) {}
+        });
+
+        String plan = planBuilder.toString();
 
         // Step 3: Persist plan to shared conversation state
         savePlan(ctx, args, plan);
