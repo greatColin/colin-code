@@ -165,7 +165,8 @@
                 console.log('[Commands] Loaded', availableCommands.length, 'commands:', availableCommands.map(function(c) { return c.name; }));
                 break;
             case 'task_list':
-                console.log('[WebSocket] task_list received:', msg.payload && msg.payload.tasks);
+                var taskCount = (msg.payload && msg.payload.tasks) ? msg.payload.tasks.length : 0;
+                console.log('[WebSocket] task_list received, count=' + taskCount, msg.payload && msg.payload.tasks);
                 renderTaskList(msg.payload && msg.payload.tasks);
                 break;
             case 'task_update':
@@ -570,7 +571,11 @@
 
     // --- Task sidebar ---
     function renderTaskList(tasks) {
-        if (!taskListEl) return;
+        console.log('[TaskSidebar] renderTaskList called, taskListEl=' + (taskListEl ? 'found' : 'missing') + ', tasks=' + (tasks ? tasks.length : 'null'));
+        if (!taskListEl) {
+            console.error('[TaskSidebar] taskListEl not found!');
+            return;
+        }
         taskListEl.innerHTML = '';
 
         if (!tasks || tasks.length === 0) {

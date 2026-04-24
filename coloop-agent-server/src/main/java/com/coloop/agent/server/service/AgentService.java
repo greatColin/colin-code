@@ -88,11 +88,12 @@ public class AgentService {
                                 new com.coloop.agent.capability.task.TaskManagementCapability(config);
                         cmdRegistry.register(taskCap.getTasksCommand());
 
+                        // TODO: Plan Mode 暂时下线（稳定性问题），恢复时取消注释以下 4 行
                         // 创建 Plan Mode 能力
-                        com.coloop.agent.capability.plan.PlanCapability planCap =
-                                new com.coloop.agent.capability.plan.PlanCapability(provider, config);
-                        cmdRegistry.register(planCap.getPlanCommand());
-                        cmdRegistry.register(planCap.getCancelCommand());
+                        // com.coloop.agent.capability.plan.PlanCapability planCap =
+                        //         new com.coloop.agent.capability.plan.PlanCapability(provider, config);
+                        // cmdRegistry.register(planCap.getPlanCommand());
+                        // cmdRegistry.register(planCap.getCancelCommand());
 
                         // 将 TaskService 注入 WebSocketLoggingHook，使其能推送任务列表
                         hook.setTaskService(taskCap.getTaskService());
@@ -154,7 +155,8 @@ public class AgentService {
                                 .withCapability(StandardCapability.SUMMARY_PROMPT, config)
                                 .withCapability(StandardCapability.MCP_CLIENT, config)
                                 .withComposite(taskCap)
-                                .withComposite(planCap)
+                                // TODO: 恢复 Plan Mode 时取消注释 .withComposite(planCap)
+                                // .withComposite(planCap)
                                 .withHook(hook)
                                 .withInterceptor(cmdInterceptor)
                                 .build(provider, config);
@@ -221,8 +223,9 @@ public class AgentService {
         CommandScanner.scanUserCommands(listRegistry);
         CommandScanner.scanProjectCommands(listRegistry);
 
-        listRegistry.register(new com.coloop.agent.capability.plan.PlanCommand(null, new AppConfig(), new com.coloop.agent.core.context.ConversationState()));
-        listRegistry.register(new com.coloop.agent.capability.plan.CancelCommand(new com.coloop.agent.core.context.ConversationState()));
+        // TODO: 恢复 Plan Mode 时取消注释以下 2 行
+        // listRegistry.register(new com.coloop.agent.capability.plan.PlanCommand(null, new AppConfig(), new com.coloop.agent.core.context.ConversationState()));
+        // listRegistry.register(new com.coloop.agent.capability.plan.CancelCommand(new com.coloop.agent.core.context.ConversationState()));
 
         List<Map<String, String>> commands = new ArrayList<>();
         for (Command cmd : listRegistry.getAll()) {

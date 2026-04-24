@@ -129,7 +129,7 @@ public class WebSocketLoggingHook implements AgentHook {
         try {
             String json = objectMapper.writeValueAsString(msg);
             session.sendMessage(new TextMessage(json));
-        } catch (IOException e) {
+        } catch (Exception e) {
             System.err.println("WebSocket send failed: " + e.getMessage());
         }
     }
