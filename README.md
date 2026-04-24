@@ -191,8 +191,8 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
 | **Context Compression / Sliding Window** | ✅ Done: `/compact` + auto-compact (80% threshold) + TokenEstimator + model-level context config | P1 |
 | **Plan Mode** | ✅ Done: `/plan` enters read-only planning mode; plan injected on confirmation; `/cancel` to abort | P1 |
 | **Parallel Tool Calls** | OpenAI API supports multiple tool calls per turn, but we execute them serially | P1 |
-| **Git Integration** | Cannot auto-check diff, status, generate commit messages, or create branches | P1 |
-| **Checkpoint / Rollback** | No snapshot-and-revert of code changes like Aider | P2 |
+| ~~Git Integration~~ | Covered by `ExecTool` (`git diff`, `git status`, `git commit`, etc.) | — |
+| ~~Checkpoint / Rollback~~ | Covered by `ExecTool` (Git operations or manual file backups) | — |
 | **MCP (Model Context Protocol) Support** | ✅ Done: `McpClient` via STDIO + JSON-RPC; `McpCapability` exposes remote tools as local Tools | P2 |
 | **Verify-Before-Completion Loop** | Does not auto-compile / run / test after code changes to self-verify correctness | P2 |
 | **Multi-Agent Coordination** | Single loop handles everything; no Planner + Executor + Reviewer collaboration | P2 |
@@ -292,9 +292,6 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
     - ✅ Auto-compact: triggers automatically when token usage exceeds 80%, keeping last 2 turns
     - ✅ TokenEstimator: lightweight token estimation based on character count (Chinese 1.5 / non-Chinese 0.25)
     - ✅ Model-level context config: `maxContextSize` field supports raw number / `k` / `m` (e.g. minimax 200k, glm 100k, default 100k)
-15. **Git Integration Tools**
-    - `git_status`, `git_diff`, `git_commit`, `git_branch`
-    - Auto-check diff before critical operations to prevent accidental changes
 
 ### Phase 4: Frontend Polish + Advanced Capabilities
 16. **Settings Panel**
@@ -321,11 +318,9 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
     - Configurable via `AppConfig.mcpServers` (command, args, env)
 
 ### Phase 5: Ecosystem & Extensibility
-22. **Checkpoint & Rollback**
-    - Rollback changes based on Git workspace or in-memory snapshots
-23. **Multi-Agent Coordination**
+22. **Multi-Agent Coordination**
     - Support sub-agent / dedicated loop delegation on top of the existing Hook system
-24. **Export / Share**
+23. **Export / Share**
     - Export conversation as Markdown file
     - Shareable links (requires backend session persistence)
 25. **Browser Tools**

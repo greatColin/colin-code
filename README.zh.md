@@ -191,8 +191,8 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
 | **上下文压缩 / 滑动窗口** | ✅ 已实现：`/compact` 命令 + 自动压缩（80% 阈值）+ TokenEstimator + 模型级上下文配置 | P1 |
 | **计划模式（Plan Mode）** | ✅ 已实现：`/plan` 进入只读规划模式，确认后注入计划执行，`/cancel` 取消 | P1 |
 | **并行 Tool Calls** | OpenAI API 支持一次请求返回多个 tool call，但我们目前串行执行 | P1 |
-| **Git 集成** | 无法自动查看 diff、status、生成 commit message、创建分支 | P1 |
-| **Checkpoint / 回滚** | 无法像 Aider 一样对代码变更做快照和撤销 | P2 |
+| ~~Git 集成~~ | 已由 `ExecTool` 覆盖（`git diff`、`git status`、`git commit` 等） | — |
+| ~~Checkpoint / 回滚~~ | 已由 `ExecTool` 覆盖（Git 操作或手动文件备份） | — |
 | **MCP（Model Context Protocol）支持** | ✅ 已实现：`McpClient` 通过 STDIO + JSON-RPC 连接；`McpCapability` 将远程工具暴露为本地 Tool | P2 |
 | **验证循环（Verify-before-completion）** | 改完代码后不自动编译/运行/测试，无法自证正确性 | P2 |
 | **多 Agent 协调** | 单一 Loop 完成所有任务，无法拆分为 Planner + Executor + Reviewer 协作 | P2 |
@@ -292,9 +292,6 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
     - ✅ 自动压缩：token 占用超 80% 阈值时自动触发，保留最近 2 轮
     - ✅ TokenEstimator：基于字符数的轻量级 token 估算（中文 1.5 / 非中文 0.25）
     - ✅ 模型级上下文配置：支持 `maxContextSize` 字段，单位为无单位/`k`/`m`（如 minimax 配 200k，glm 配 100k，默认 100k）
-15. **Git 集成工具**
-    - `git_status`、`git_diff`、`git_commit`、`git_branch`
-    - 自动在关键操作前查看 diff，防止误改
 
 ### 阶段四：前端打磨 + 进阶能力
 16. **设置面板**
@@ -321,11 +318,9 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
     - 通过 `AppConfig.mcpServers` 配置（command、args、env）
 
 ### 阶段五：生态与可扩展性
-22. **Checkpoint 与回滚**
-    - 基于 Git 工作区或内存快照的变更回滚
-23. **多 Agent 协调**
+22. **多 Agent 协调**
     - 在现有 Hook 体系上，支持子 Agent / 专属 Loop 的委派
-24. **导出 / 分享**
+23. **导出 / 分享**
     - 导出对话为 Markdown 文件
     - 生成可分享链接（需后端会话持久化）
 25. **浏览器工具**
