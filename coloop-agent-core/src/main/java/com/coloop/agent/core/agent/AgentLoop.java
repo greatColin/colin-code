@@ -127,10 +127,10 @@ public class AgentLoop {
             } else {
                 // 4.2 无 tool_calls 则返回最终响应
                 String finalResponse = response.getContent() != null ? response.getContent() : "";
+                messageBuilder.addAssistantMessage(messages, response);
                 for (AgentHook h : hooks) {
                     h.onLoopEnd(finalResponse);
                 }
-                messageBuilder.addAssistantMessage(messages, response);
                 return finalResponse;
             }
         }
@@ -243,10 +243,10 @@ public class AgentLoop {
                 injectPendingUserMessages();
             } else {
                 String finalResponse = response.getContent() != null ? response.getContent() : "";
+                messageBuilder.addAssistantMessage(messages, response);
                 for (AgentHook h : hooks) {
                     h.onLoopEnd(finalResponse);
                 }
-                messageBuilder.addAssistantMessage(messages, response);
                 return finalResponse;
             }
         }

@@ -103,6 +103,9 @@ public class AgentService {
                                 .withCapability(StandardCapability.BASE_PROMPT, config)
                                 .withCapability(StandardCapability.AGENTS_MD_PROMPT, config)
                                 .withCapability(StandardCapability.LOGGING_HOOK, config)
+                                .withCapability(StandardCapability.SUMMARY_PROMPT, config)
+                                .withCapability(StandardCapability.MCP_CLIENT, config)
+                                .withCapability(StandardCapability.TASK_MANAGEMENT, config)
                                 .withHook(hook)
                                 .withInterceptor(cmdInterceptor)
                                 .build(provider, config);

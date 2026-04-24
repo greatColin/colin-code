@@ -82,6 +82,14 @@ public class WebSocketLoggingHook implements AgentHook {
         } else {
             send(WebSocketMessage.assistant(finalResponse));
         }
+        // 消息历史已更新（addAssistantMessage 在 onLoopEnd 前执行），同步最新上下文占用
+        if (agentLoop != null) {
+            send(WebSocketMessage.contextUsage(
+                agentLoop.getCurrentTokenCount(),
+                agentLoop.getContextLimit(),
+                agentLoop.getContextUsagePercent()
+            ));
+        }
     }
 
     @Override
