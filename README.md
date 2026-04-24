@@ -189,7 +189,7 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
 | **Conversation History Persistence** | ✅ Done: `AgentLoop` maintains message list across `chat()` calls | P0 |
 | **Streaming Output (Backend)** | ✅ Done: `LLMProvider.chatStream()` + `OpenAICompatibleProvider` SSE word-by-word | P0 |
 | **Context Compression / Sliding Window** | ✅ Done: `/compact` + auto-compact (80% threshold) + TokenEstimator + model-level context config | P1 |
-| **Plan Mode** | No way for the agent to draft a plan, get user confirmation, then execute | P1 |
+| **Plan Mode** | ✅ Done: `/plan` enters read-only planning mode; plan injected on confirmation; `/cancel` to abort | P1 |
 | **Parallel Tool Calls** | OpenAI API supports multiple tool calls per turn, but we execute them serially | P1 |
 | **Git Integration** | Cannot auto-check diff, status, generate commit messages, or create branches | P1 |
 | **Checkpoint / Rollback** | No snapshot-and-revert of code changes like Aider | P2 |
@@ -280,9 +280,11 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
     - Left sidebar: session list with title, timestamp, and message count
     - New / delete / rename sessions; auto-title from first user message
     - Clicking a history item restores context (replays messages into `AgentLoop`)
-12. **Plan Mode**
-    - Agent outputs a plan first for complex tasks; user confirms before execution
-    - Integrate with `InputInterceptor` to support `/plan` shortcut
+12. **Plan Mode** ✅ Done
+    - ✅ `/plan` command enters read-only planning mode with isolated AgentLoop
+    - ✅ Plan generated using only read/search/list/exec tools
+    - ✅ Plan stored in `ConversationState`; injected into main loop on user confirmation
+    - ✅ `/cancel` command to abort pending plan
 13. **Parallel Tool Calls**
     - Execute multiple tool calls from a single LLM response in parallel to reduce latency
 14. **Context Management** ✅ Done

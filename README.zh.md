@@ -189,7 +189,7 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
 | **对话历史持久化** | ✅ 已实现：`AgentLoop` 维护跨轮次消息列表 | P0 |
 | **流式输出（后端）** | ✅ 已实现：`LLMProvider.chatStream()` + `OpenAICompatibleProvider` SSE 逐字输出 | P0 |
 | **上下文压缩 / 滑动窗口** | ✅ 已实现：`/compact` 命令 + 自动压缩（80% 阈值）+ TokenEstimator + 模型级上下文配置 | P1 |
-| **计划模式（Plan Mode）** | 无法让 Agent 先制定计划、获得用户确认后再执行，容易”先做后错” | P1 |
+| **计划模式（Plan Mode）** | ✅ 已实现：`/plan` 进入只读规划模式，确认后注入计划执行，`/cancel` 取消 | P1 |
 | **并行 Tool Calls** | OpenAI API 支持一次请求返回多个 tool call，但我们目前串行执行 | P1 |
 | **Git 集成** | 无法自动查看 diff、status、生成 commit message、创建分支 | P1 |
 | **Checkpoint / 回滚** | 无法像 Aider 一样对代码变更做快照和撤销 | P2 |
@@ -280,9 +280,11 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
     - 左侧边栏：会话列表，显示标题、时间戳、消息数
     - 新建 / 删除 / 重命名会话；自动以第一条用户消息生成标题
     - 点击历史项恢复上下文（将消息重播进 `AgentLoop`）
-12. **计划模式（Plan Mode）**
-    - 检测到复杂任务时，Agent 先输出计划，用户确认后再执行
-    - 与 `InputInterceptor` 结合，支持 `/plan` 快捷指令
+12. **计划模式（Plan Mode）** ✅ 已完成
+    - ✅ `/plan` 命令进入只读规划模式，使用独立的 AgentLoop
+    - ✅ 计划仅通过 read/search/list/exec 工具生成
+    - ✅ 计划存入 `ConversationState`，用户确认后注入主循环执行
+    - ✅ `/cancel` 命令取消待执行计划
 13. **并行 Tool Calls**
     - 一轮 LLM 响应中多个 tool call 并行执行，缩短总耗时
 14. **上下文管理** ✅ 已完成
