@@ -106,6 +106,30 @@ public class AgentService {
                                 System.err.println("Failed to send plan stream chunk: " + e.getMessage());
                             }
                         });
+                        cmdCtx.setAttribute("sendTaskList", (java.util.function.Consumer<java.util.List<java.util.Map<String, Object>>>) tasks -> {
+                            if (!session.isOpen()) return;
+                            try {
+                                WebSocketMessage msg = WebSocketMessage.taskList(tasks);
+                                String json = objectMapper.writeValueAsString(msg);
+                                session.sendMessage(new TextMessage(json));
+                            } catch (Exception e) {
+                                System.err.println("Failed to send task list: " + e.getMessage());
+                            }
+                        });
+                        cmdCtx.setAttribute("sendTaskUpdate", (java.util.function.Consumer<java.util.Map<String, Object>>) update -> {
+                            if (!session.isOpen()) return;
+                            try {
+                                WebSocketMessage msg = WebSocketMessage.taskUpdate(
+                                        (Integer) update.get("id"),
+                                        (String) update.get("status"),
+                                        (String) update.get("description")
+                                );
+                                String json = objectMapper.writeValueAsString(msg);
+                                session.sendMessage(new TextMessage(json));
+                            } catch (Exception e) {
+                                System.err.println("Failed to send task update: " + e.getMessage());
+                            }
+                        });
                         cmdCtx.setAttribute("resetSession", (Runnable) () -> {
                             synchronized (ctx) {
                                 ctx.agentLoop = null;

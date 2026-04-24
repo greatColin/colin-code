@@ -100,6 +100,20 @@ public class WebSocketMessage {
         return new WebSocketMessage("new_session", new HashMap<>());
     }
 
+    public static WebSocketMessage taskList(List<Map<String, Object>> tasks) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("tasks", tasks);
+        return new WebSocketMessage("task_list", payload);
+    }
+
+    public static WebSocketMessage taskUpdate(int taskId, String status, String description) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("id", taskId);
+        payload.put("status", status);
+        payload.put("description", description);
+        return new WebSocketMessage("task_update", payload);
+    }
+
     public String getType() {
         return type;
     }

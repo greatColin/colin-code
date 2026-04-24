@@ -64,6 +64,9 @@
     const sendBtn = document.getElementById('send-btn');
     const statusEl = document.getElementById('connection-status');
     const commandSuggestionsEl = document.getElementById('command-suggestions');
+    const taskListEl = document.getElementById('task-list');
+    const taskSidebarEl = document.getElementById('task-sidebar');
+    const taskSidebarToggleEl = document.getElementById('task-sidebar-toggle');
 
     const wsUrl = 'ws://' + window.location.host + '/ws/agent';
     let ws = null;
@@ -160,6 +163,12 @@
             case 'commands':
                 availableCommands = (msg.payload && msg.payload.commands) || [];
                 console.log('[Commands] Loaded', availableCommands.length, 'commands:', availableCommands.map(function(c) { return c.name; }));
+                break;
+            case 'task_list':
+                renderTaskList(msg.payload && msg.payload.tasks);
+                break;
+            case 'task_update':
+                updateTaskStatus(msg.payload);
                 break;
         }
         scrollToBottom();
@@ -555,6 +564,76 @@
         }
         hideSuggestions();
         messageInput.focus();
+    }
+
+    // --- Task sidebar ---
+    function renderTaskList(tasks) {
+        if (!taskListEl) return;
+        taskListEl.innerHTML = '';
+
+        if (!tasks || tasks.length === 0) {
+            taskListEl.innerHTML = '<div class="task-empty">暂无计划任务</div>';
+            return;
+        }
+
+        tasks.forEach(function(task) {
+            const item = createTaskElement(task);
+            taskListEl.appendChild(item);
+        });
+    }
+
+    function createTaskElement(task) {
+        const el = document.createElement('div');
+        el.className = 'task-item status-' + (task.status || 'pending');
+        el.dataset.taskId = task.id;
+
+        const icon = document.createElement('span');
+        icon.className = 'task-icon';
+        icon.textContent = getTaskIcon(task.status || 'pending');
+
+        const text = document.createElement('span');
+        text.className = 'task-text';
+        text.textContent = task.description || '';
+
+        el.appendChild(icon);
+        el.appendChild(text);
+        return el;
+    }
+
+    function getTaskIcon(status) {
+        switch (status) {
+            case 'pending': return '⏳';
+            case 'in_progress': return '▶';
+            case 'completed': return '✅';
+            case 'failed': return '❌';
+            default: return '⏳';
+        }
+    }
+
+    function updateTaskStatus(payload) {
+        if (!taskListEl || !payload) return;
+        const items = taskListEl.querySelectorAll('.task-item');
+        for (var i = 0; i < items.length; i++) {
+            if (parseInt(items[i].dataset.taskId) === payload.id) {
+                items[i].className = 'task-item status-' + (payload.status || 'pending');
+                const icon = items[i].querySelector('.task-icon');
+                if (icon) icon.textContent = getTaskIcon(payload.status || 'pending');
+                break;
+            }
+        }
+    }
+
+    if (taskSidebarToggleEl && taskSidebarEl) {
+        taskSidebarToggleEl.addEventListener('click', function() {
+            const isCollapsed = taskSidebarEl.classList.contains('collapsed');
+            if (isCollapsed) {
+                taskSidebarEl.classList.remove('collapsed');
+                taskSidebarToggleEl.textContent = '◀';
+            } else {
+                taskSidebarEl.classList.add('collapsed');
+                taskSidebarToggleEl.textContent = '▶';
+            }
+        });
     }
 
     // Start connection

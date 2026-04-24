@@ -26,10 +26,18 @@ public class CancelCommand implements Command {
     @Override
     public CommandResult execute(CommandContext ctx, String args) {
         if (conversationState.getPendingPlan() != null) {
-            conversationState.setPendingPlan(null);
-            conversationState.setPlanRequest(null);
+            conversationState.clearPlan();
+            sendTaskListClear(ctx);
             return CommandResult.success("Plan cancelled.");
         }
         return CommandResult.success("No pending plan to cancel.");
+    }
+
+    @SuppressWarnings("unchecked")
+    private void sendTaskListClear(CommandContext ctx) {
+        java.util.function.Consumer<java.util.List<java.util.Map<String, Object>>> sender = ctx.getAttribute("sendTaskList");
+        if (sender != null) {
+            sender.accept(new java.util.ArrayList<>());
+        }
     }
 }

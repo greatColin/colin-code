@@ -2,6 +2,8 @@ package com.coloop.agent.server.hook;
 
 import com.coloop.agent.core.agent.AgentHook;
 import com.coloop.agent.core.agent.AgentLoop;
+import com.coloop.agent.core.context.ConversationState;
+import com.coloop.agent.core.context.PlanTask;
 import com.coloop.agent.core.provider.ToolCallRequest;
 import com.coloop.agent.server.dto.WebSocketMessage;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -73,6 +75,7 @@ public class WebSocketLoggingHook implements AgentHook {
         }
         boolean success = result != null && !result.startsWith("Error:");
         send(WebSocketMessage.toolResult(toolCall.getName(), result, success));
+        advancePlanTaskProgress();
     }
 
     @Override
@@ -90,6 +93,7 @@ public class WebSocketLoggingHook implements AgentHook {
                 agentLoop.getContextUsagePercent()
             ));
         }
+        completePlanTasks();
     }
 
     @Override
@@ -112,5 +116,60 @@ public class WebSocketLoggingHook implements AgentHook {
         } catch (IOException e) {
             System.err.println("WebSocket send failed: " + e.getMessage());
         }
+    }
+
+    /** 推进计划任务进度：当前 in_progress 标记为 completed，下一个 pending 标记为 in_progress。 */
+    private void advancePlanTaskProgress() {
+        if (agentLoop == null) return;
+        ConversationState state = agentLoop.getConversationState();
+        if (state == null) return;
+        List<PlanTask> tasks = state.getPlanTasks();
+        if (tasks == null || tasks.isEmpty()) return;
+
+        for (int i = 0; i < tasks.size(); i++) {
+            if (tasks.get(i).getStatus() == PlanTask.Status.IN_PROGRESS) {
+                tasks.get(i).setStatus(PlanTask.Status.COMPLETED);
+                sendTaskUpdate(tasks.get(i));
+                if (i + 1 < tasks.size()) {
+                    tasks.get(i + 1).setStatus(PlanTask.Status.IN_PROGRESS);
+                    sendTaskUpdate(tasks.get(i + 1));
+                }
+                return;
+            }
+        }
+
+        // 尚无 in_progress 任务，将第一个 pending 标记为 in_progress
+        for (PlanTask task : tasks) {
+            if (task.getStatus() == PlanTask.Status.PENDING) {
+                task.setStatus(PlanTask.Status.IN_PROGRESS);
+                sendTaskUpdate(task);
+                return;
+            }
+        }
+    }
+
+    /** 计划执行完毕，将所有未完成任务标记为 completed 并清除任务列表。 */
+    private void completePlanTasks() {
+        if (agentLoop == null) return;
+        ConversationState state = agentLoop.getConversationState();
+        if (state == null) return;
+        List<PlanTask> tasks = state.getPlanTasks();
+        if (tasks == null || tasks.isEmpty()) return;
+
+        for (PlanTask task : tasks) {
+            if (task.getStatus() != PlanTask.Status.COMPLETED) {
+                task.setStatus(PlanTask.Status.COMPLETED);
+                sendTaskUpdate(task);
+            }
+        }
+        state.setPlanTasks(null);
+    }
+
+    private void sendTaskUpdate(PlanTask task) {
+        send(WebSocketMessage.taskUpdate(
+            task.getId(),
+            task.getStatus().name().toLowerCase(),
+            task.getDescription()
+        ));
     }
 }

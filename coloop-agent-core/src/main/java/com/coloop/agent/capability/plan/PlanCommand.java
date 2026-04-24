@@ -11,12 +11,19 @@ import com.coloop.agent.core.command.CommandContext;
 import com.coloop.agent.core.command.CommandResult;
 import com.coloop.agent.core.context.ConversationState;
 import com.coloop.agent.core.provider.LLMProvider;
+import com.coloop.agent.core.context.PlanTask;
 import com.coloop.agent.core.provider.LLMResponse;
 import com.coloop.agent.core.provider.ToolCallRequest;
 import com.coloop.agent.runtime.CapabilityLoader;
 import com.coloop.agent.runtime.config.AppConfig;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class PlanCommand implements Command {
 
@@ -93,12 +100,53 @@ public class PlanCommand implements Command {
     }
 
     // Save the generated plan and original request into shared state.
+    // Also parses the plan text into structured tasks and sends them via WebSocket.
     // Package-private for unit testing.
     void savePlan(CommandContext ctx, String request, String plan) {
         if (sharedState != null) {
             sharedState.setPendingPlan(plan);
             sharedState.setPlanRequest(request);
         }
+        List<PlanTask> tasks = parsePlanTasks(plan);
+        if (sharedState != null) {
+            sharedState.setPlanTasks(tasks);
+        }
+        sendTaskList(ctx, tasks);
+    }
+
+    // Extract numbered steps from plan text into structured PlanTask list.
+    // Package-private for unit testing.
+    List<PlanTask> parsePlanTasks(String plan) {
+        List<PlanTask> tasks = new ArrayList<>();
+        if (plan == null || plan.isEmpty()) {
+            return tasks;
+        }
+        Pattern stepPattern = Pattern.compile("^\\s*(\\d+)[\\.\\)\\-]\\s+(.+)$", Pattern.MULTILINE);
+        Matcher matcher = stepPattern.matcher(plan);
+        while (matcher.find()) {
+            int id = Integer.parseInt(matcher.group(1));
+            String description = matcher.group(2).trim();
+            tasks.add(new PlanTask(id, description));
+        }
+        return tasks;
+    }
+
+    // Send task list to frontend via WebSocket if sender is available.
+    @SuppressWarnings("unchecked")
+    private void sendTaskList(CommandContext ctx, List<PlanTask> tasks) {
+        Consumer<List<Map<String, Object>>> sender = ctx.getAttribute("sendTaskList");
+        if (sender == null || tasks.isEmpty()) {
+            return;
+        }
+        List<Map<String, Object>> payload = new ArrayList<>();
+        for (PlanTask task : tasks) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", task.getId());
+            item.put("description", task.getDescription());
+            item.put("status", task.getStatus().name().toLowerCase());
+            payload.add(item);
+        }
+        sender.accept(payload);
     }
 
     // Build the result message shown to the user after plan generation.

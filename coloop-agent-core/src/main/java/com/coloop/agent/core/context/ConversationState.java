@@ -12,6 +12,7 @@ public class ConversationState {
     private volatile ConversationSummary summary;
     private volatile String pendingPlan;
     private volatile String planRequest;
+    private volatile java.util.List<PlanTask> planTasks;
 
     public void setSummary(ConversationSummary summary) {
         this.summary = summary;
@@ -35,5 +36,20 @@ public class ConversationState {
 
     public String getPlanRequest() {
         return planRequest;
+    }
+
+    public void setPlanTasks(java.util.List<PlanTask> planTasks) {
+        this.planTasks = planTasks;
+    }
+
+    public java.util.List<PlanTask> getPlanTasks() {
+        return planTasks;
+    }
+
+    /** 重置所有 Plan 相关状态。 */
+    public void clearPlan() {
+        this.pendingPlan = null;
+        this.planRequest = null;
+        this.planTasks = null;
     }
 }
