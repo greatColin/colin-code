@@ -88,6 +88,12 @@ public class AgentService {
                                 new com.coloop.agent.capability.task.TaskManagementCapability(config);
                         cmdRegistry.register(taskCap.getTasksCommand());
 
+                        // 创建 Plan Mode 能力
+                        com.coloop.agent.capability.plan.PlanCapability planCap =
+                                new com.coloop.agent.capability.plan.PlanCapability(provider, config);
+                        cmdRegistry.register(planCap.getPlanCommand());
+                        cmdRegistry.register(planCap.getCancelCommand());
+
                         CommandContext cmdCtx = new CommandContext(config, null);
                         cmdCtx.setAttribute("session", session);
                         cmdCtx.setAttribute("resetSession", (Runnable) () -> {
@@ -111,6 +117,7 @@ public class AgentService {
                                 .withCapability(StandardCapability.SUMMARY_PROMPT, config)
                                 .withCapability(StandardCapability.MCP_CLIENT, config)
                                 .withComposite(taskCap)
+                                .withComposite(planCap)
                                 .withHook(hook)
                                 .withInterceptor(cmdInterceptor)
                                 .build(provider, config);
@@ -176,6 +183,9 @@ public class AgentService {
         listRegistry.register(new HelpCommand(listRegistry));
         CommandScanner.scanUserCommands(listRegistry);
         CommandScanner.scanProjectCommands(listRegistry);
+
+        listRegistry.register(new com.coloop.agent.capability.plan.PlanCommand(null, new AppConfig(), new com.coloop.agent.core.context.ConversationState()));
+        listRegistry.register(new com.coloop.agent.capability.plan.CancelCommand(new com.coloop.agent.core.context.ConversationState()));
 
         List<Map<String, String>> commands = new ArrayList<>();
         for (Command cmd : listRegistry.getAll()) {
