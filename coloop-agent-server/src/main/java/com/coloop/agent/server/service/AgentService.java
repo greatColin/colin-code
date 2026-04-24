@@ -94,6 +94,9 @@ public class AgentService {
                         cmdRegistry.register(planCap.getPlanCommand());
                         cmdRegistry.register(planCap.getCancelCommand());
 
+                        // 将 TaskService 注入 WebSocketLoggingHook，使其能推送任务列表
+                        hook.setTaskService(taskCap.getTaskService());
+
                         CommandContext cmdCtx = new CommandContext(config, null);
                         cmdCtx.setAttribute("session", session);
                         cmdCtx.setAttribute("streamChunkSender", (java.util.function.Consumer<String>) chunk -> {

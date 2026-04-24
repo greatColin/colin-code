@@ -614,7 +614,7 @@
         if (!taskListEl || !payload) return;
         const items = taskListEl.querySelectorAll('.task-item');
         for (var i = 0; i < items.length; i++) {
-            if (parseInt(items[i].dataset.taskId) === payload.id) {
+            if (String(items[i].dataset.taskId) === String(payload.id)) {
                 items[i].className = 'task-item status-' + (payload.status || 'pending');
                 const icon = items[i].querySelector('.task-icon');
                 if (icon) icon.textContent = getTaskIcon(payload.status || 'pending');

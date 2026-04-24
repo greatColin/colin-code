@@ -1,16 +1,21 @@
 package com.coloop.agent.server.hook;
 
+import com.coloop.agent.capability.task.TaskService;
 import com.coloop.agent.core.agent.AgentHook;
 import com.coloop.agent.core.agent.AgentLoop;
 import com.coloop.agent.core.context.ConversationState;
 import com.coloop.agent.core.context.PlanTask;
 import com.coloop.agent.core.provider.ToolCallRequest;
+import com.coloop.agent.core.task.Task;
+import com.coloop.agent.core.task.TaskStatus;
 import com.coloop.agent.server.dto.WebSocketMessage;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -24,6 +29,7 @@ public class WebSocketLoggingHook implements AgentHook {
     private final ObjectMapper objectMapper;
     private final AtomicInteger loopCount;
     private AgentLoop agentLoop;
+    private TaskService taskService;
 
     public WebSocketLoggingHook(WebSocketSession session, AgentLoop agentLoop) {
         this.session = session;
@@ -38,6 +44,10 @@ public class WebSocketLoggingHook implements AgentHook {
 
     public void setAgentLoop(AgentLoop agentLoop) {
         this.agentLoop = agentLoop;
+    }
+
+    public void setTaskService(TaskService taskService) {
+        this.taskService = taskService;
     }
 
     @Override
@@ -76,6 +86,11 @@ public class WebSocketLoggingHook implements AgentHook {
         boolean success = result != null && !result.startsWith("Error:");
         send(WebSocketMessage.toolResult(toolCall.getName(), result, success));
         advancePlanTaskProgress();
+
+        // 当 task 相关工具被调用时，推送最新任务列表到前端
+        if (toolCall.getName().startsWith("task_")) {
+            sendTaskListFromTaskService();
+        }
     }
 
     @Override
@@ -171,5 +186,23 @@ public class WebSocketLoggingHook implements AgentHook {
             task.getStatus().name().toLowerCase(),
             task.getDescription()
         ));
+    }
+
+    /** 从 TaskService 获取任务列表并推送到前端（通用任务系统）。 */
+    private void sendTaskListFromTaskService() {
+        if (taskService == null) return;
+        List<Task> tasks = taskService.list();
+        if (tasks == null || tasks.isEmpty()) return;
+
+        List<Map<String, Object>> payload = new ArrayList<>();
+        for (Task task : tasks) {
+            if (task.getStatus() == TaskStatus.DELETED) continue;
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", task.getId());
+            item.put("description", task.getSubject());
+            item.put("status", task.getStatus().name().toLowerCase());
+            payload.add(item);
+        }
+        send(WebSocketMessage.taskList(payload));
     }
 }
