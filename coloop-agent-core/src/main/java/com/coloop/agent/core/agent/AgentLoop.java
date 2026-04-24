@@ -283,6 +283,11 @@ public class AgentLoop {
         this.conversationState = conversationState;
     }
 
+    /** 获取会话状态共享对象。 */
+    public ConversationState getConversationState() {
+        return conversationState;
+    }
+
     /** 获取当前消息列表的估算 token 数。 */
     public int getCurrentTokenCount() {
         return TokenEstimator.estimate(messages);

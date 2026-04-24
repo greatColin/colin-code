@@ -10,6 +10,8 @@ package com.coloop.agent.core.context;
 public class ConversationState {
 
     private volatile ConversationSummary summary;
+    private volatile String pendingPlan;
+    private volatile String planRequest;
 
     public void setSummary(ConversationSummary summary) {
         this.summary = summary;
@@ -17,5 +19,21 @@ public class ConversationState {
 
     public ConversationSummary getSummary() {
         return summary;
+    }
+
+    public void setPendingPlan(String pendingPlan) {
+        this.pendingPlan = pendingPlan;
+    }
+
+    public String getPendingPlan() {
+        return pendingPlan;
+    }
+
+    public void setPlanRequest(String planRequest) {
+        this.planRequest = planRequest;
+    }
+
+    public String getPlanRequest() {
+        return planRequest;
     }
 }
