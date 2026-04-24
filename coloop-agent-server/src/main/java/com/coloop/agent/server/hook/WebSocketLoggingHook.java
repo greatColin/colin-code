@@ -89,6 +89,7 @@ public class WebSocketLoggingHook implements AgentHook {
 
         // 当 task 相关工具被调用时，推送最新任务列表到前端
         if (toolCall.getName().startsWith("task_")) {
+            System.out.println("[TaskSidebar] Detected task tool call: " + toolCall.getName());
             sendTaskListFromTaskService();
         }
     }
@@ -190,8 +191,12 @@ public class WebSocketLoggingHook implements AgentHook {
 
     /** 从 TaskService 获取任务列表并推送到前端（通用任务系统）。 */
     private void sendTaskListFromTaskService() {
-        if (taskService == null) return;
+        if (taskService == null) {
+            System.err.println("[TaskSidebar] taskService is null, skipping task list push");
+            return;
+        }
         List<Task> tasks = taskService.list();
+        System.out.println("[TaskSidebar] Pushing " + (tasks != null ? tasks.size() : 0) + " tasks to frontend");
         if (tasks == null || tasks.isEmpty()) return;
 
         List<Map<String, Object>> payload = new ArrayList<>();

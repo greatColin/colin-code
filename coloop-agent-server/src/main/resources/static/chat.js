@@ -165,9 +165,11 @@
                 console.log('[Commands] Loaded', availableCommands.length, 'commands:', availableCommands.map(function(c) { return c.name; }));
                 break;
             case 'task_list':
+                console.log('[WebSocket] task_list received:', msg.payload && msg.payload.tasks);
                 renderTaskList(msg.payload && msg.payload.tasks);
                 break;
             case 'task_update':
+                console.log('[WebSocket] task_update received:', msg.payload);
                 updateTaskStatus(msg.payload);
                 break;
         }

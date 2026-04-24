@@ -55,7 +55,9 @@ public class TaskStatusPromptPlugin implements PromptPlugin {
         sb.append("3. After completing each step, update the task status to COMPLETED via task_update.\n");
         sb.append("4. Only ONE task may be IN_PROGRESS at a time.\n");
         sb.append("5. Use blocked_by to express dependencies between steps.\n");
-        sb.append("6. You MUST use these tools VERY frequently. Planning first prevents mistakes.\n\n");
+        sb.append("6. You MUST use these tools VERY frequently. Planning first prevents mistakes.\n");
+        sb.append("7. NEVER list tasks in plain text — ALWAYS use task_create tool to create them.\n");
+        sb.append("8. The user can see your task progress in a sidebar — keep it updated.\n\n");
 
         // 动态状态段：注入当前任务列表，让 LLM 知道进度
         // 没任务时也要显示提示，提醒 LLM 该创建任务了
