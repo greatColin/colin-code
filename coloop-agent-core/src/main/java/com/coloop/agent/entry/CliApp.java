@@ -46,6 +46,12 @@ public class CliApp {
             new com.coloop.agent.capability.task.TaskManagementCapability(config);
         cmdRegistry.register(taskCap.getTasksCommand());
 
+        // 创建 Plan Mode 能力
+        com.coloop.agent.capability.plan.PlanCapability planCap =
+            new com.coloop.agent.capability.plan.PlanCapability(provider, config);
+        cmdRegistry.register(planCap.getPlanCommand());
+        cmdRegistry.register(planCap.getCancelCommand());
+
         CommandContext cmdCtx = new CommandContext(config);
         CommandInterceptor cmdInterceptor = new CommandInterceptor(cmdRegistry, cmdCtx);
 
@@ -66,6 +72,7 @@ public class CliApp {
 
         // 复用已有的 taskCap 实例，确保 /tasks 命令和工具共享同一 TaskService
         loader.withComposite(taskCap);
+        loader.withComposite(planCap);
 
         AgentLoop agentLoop = loader.build(provider, config);
 
