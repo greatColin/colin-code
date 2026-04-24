@@ -17,7 +17,7 @@ public class PlanCommandTest {
 
     @Test
     public void testGetNameAndDescription() {
-        PlanCommand cmd = new PlanCommand(null, new AppConfig());
+        PlanCommand cmd = new PlanCommand(null, new AppConfig(), new ConversationState());
         assertEquals("plan", cmd.getName());
         assertNotNull(cmd.getDescription());
         assertFalse(cmd.getDescription().isEmpty());
@@ -25,7 +25,7 @@ public class PlanCommandTest {
 
     @Test
     public void testBuildResultContainsPlanAndPrompt() {
-        PlanCommand cmd = new PlanCommand(null, new AppConfig());
+        PlanCommand cmd = new PlanCommand(null, new AppConfig(), new ConversationState());
         CommandResult result = cmd.buildResult("step 1: do something");
 
         assertTrue(result.getMessage().contains("step 1: do something"));
@@ -36,27 +36,20 @@ public class PlanCommandTest {
     @Test
     public void testSavePlanStoresInConversationState() {
         AppConfig config = new AppConfig();
-        MockProvider provider = new MockProvider(List.of(response("mock plan")));
-
-        com.coloop.agent.core.agent.AgentLoop mainLoop =
-            new CapabilityLoader()
-                .withCapability(com.coloop.agent.runtime.StandardCapability.BASE_PROMPT, config)
-                .build(provider, config);
+        ConversationState state = new ConversationState();
 
         CommandContext ctx = new CommandContext(config);
-        ctx.setAgentLoop(mainLoop);
 
-        PlanCommand cmd = new PlanCommand(null, config);
+        PlanCommand cmd = new PlanCommand(null, config, state);
         cmd.savePlan(ctx, "original request", "the plan");
 
-        ConversationState state = mainLoop.getConversationState();
         assertEquals("the plan", state.getPendingPlan());
         assertEquals("original request", state.getPlanRequest());
     }
 
     @Test
     public void testSavePlanHandlesNullAgentLoop() {
-        PlanCommand cmd = new PlanCommand(null, new AppConfig());
+        PlanCommand cmd = new PlanCommand(null, new AppConfig(), null);
         CommandContext ctx = new CommandContext(new AppConfig());
         assertDoesNotThrow(() -> cmd.savePlan(ctx, "req", "plan"));
     }

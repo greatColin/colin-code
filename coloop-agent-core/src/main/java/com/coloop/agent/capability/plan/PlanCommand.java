@@ -18,10 +18,12 @@ public class PlanCommand implements Command {
 
     private final LLMProvider provider;
     private final AppConfig config;
+    private final ConversationState sharedState;
 
-    public PlanCommand(LLMProvider provider, AppConfig config) {
+    public PlanCommand(LLMProvider provider, AppConfig config, ConversationState sharedState) {
         this.provider = provider;
         this.config = config;
+        this.sharedState = sharedState;
     }
 
     @Override
@@ -65,16 +67,10 @@ public class PlanCommand implements Command {
     // Save the generated plan and original request into shared state.
     // Package-private for unit testing.
     void savePlan(CommandContext ctx, String request, String plan) {
-        AgentLoop mainLoop = ctx.getAgentLoop();
-        if (mainLoop == null) {
-            return;
+        if (sharedState != null) {
+            sharedState.setPendingPlan(plan);
+            sharedState.setPlanRequest(request);
         }
-        ConversationState state = mainLoop.getConversationState();
-        if (state == null) {
-            return;
-        }
-        state.setPendingPlan(plan);
-        state.setPlanRequest(request);
     }
 
     // Build the result message shown to the user after plan generation.
