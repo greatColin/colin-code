@@ -192,6 +192,7 @@ function stopRecording() {
     if (waveformCtx) {
         waveformCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
     }
+    statusText.textContent = "点击麦克风开始录音";
 }
 
 micBtn.addEventListener("click", () => {

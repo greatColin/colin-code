@@ -8,7 +8,13 @@ from correction.post_corrector import PostCorrector
 from session.voice_session import VoiceSession
 
 config = VoiceConfig()
-sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
+sio = socketio.AsyncServer(
+    async_mode="asgi",
+    cors_allowed_origins="*",
+    max_http_buffer_size=10_000_000,
+    ping_timeout=60,
+    ping_interval=25,
+)
 app = FastAPI()
 socket_app = socketio.ASGIApp(sio, app)
 
@@ -54,8 +60,7 @@ async def connect(sid, environ):
 @sio.event
 async def disconnect(sid):
     print(f"Client disconnected: {sid}")
-    if sid in sessions:
-        del sessions[sid]
+    sessions.pop(sid, None)
 
 
 @sio.on("start")
@@ -83,9 +88,9 @@ async def on_audio(sid, data):
 
 @sio.on("stop")
 async def on_stop(sid, data=None):
-    if sid in sessions:
-        await sessions[sid].stop()
-        del sessions[sid]
+    session = sessions.pop(sid, None)
+    if session:
+        await session.stop()
 
 
 if __name__ == "__main__":
