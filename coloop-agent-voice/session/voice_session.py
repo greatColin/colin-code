@@ -27,16 +27,20 @@ class VoiceSession:
         self._lock = asyncio.Lock()
 
     async def feed_audio(self, pcm_bytes: bytes):
+        print(f"[feed_audio] {len(pcm_bytes)} bytes")
         async with self._lock:
             segment = self.vad.process(pcm_bytes)
+            print(f"[feed_audio] vad segment={'yes' if segment else 'no'} ({len(segment) if segment else 0})")
             if segment:
                 await self._transcribe_segment(segment)
 
     async def _transcribe_segment(self, audio_bytes: bytes):
         try:
+            print(f"[_transcribe] {len(audio_bytes)} bytes, lang={self.config.get('lang', 'zh')}")
             text = self.engine.transcribe(
                 audio_bytes, language=self.config.get("lang", "zh")
             )
+            print(f"[_transcribe] result='{text}'")
             if not text:
                 return
 

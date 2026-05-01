@@ -83,7 +83,10 @@ async def on_start(sid, data):
 @sio.on("audio")
 async def on_audio(sid, data):
     if sid in sessions:
+        print(f"[audio] sid={sid[:8]} len={len(data)}")
         await sessions[sid].feed_audio(data)
+    else:
+        print(f"[audio] no session for sid={sid[:8]}")
 
 
 @sio.on("stop")
