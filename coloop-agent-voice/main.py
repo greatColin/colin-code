@@ -107,6 +107,13 @@ async def on_stop(sid, data=None):
         await session.stop()
 
 
+@app.on_event("startup")
+async def startup_event():
+    print("[startup] preloading whisper model...")
+    await get_engine()
+    print("[startup] model ready")
+
+
 if __name__ == "__main__":
     import uvicorn
 
