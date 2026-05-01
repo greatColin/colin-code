@@ -98,6 +98,7 @@ async function startRecording() {
         socket = io({ transports: ["websocket"] });
 
         socket.on("connect", () => {
+            console.log("[socket] connected");
             socket.emit("start", {
                 config: {
                     lang: "zh",
@@ -105,6 +106,7 @@ async function startRecording() {
                     enable_post_correction: postToggle.classList.contains("active"),
                 }
             });
+            console.log("[socket] start emitted");
             statusText.textContent = "正在录音...";
             waveformCanvas.classList.add("active");
             envelopeHistory = [];
@@ -112,17 +114,20 @@ async function startRecording() {
         });
 
         socket.on("partial", (data) => {
+            console.log("[socket] partial:", data);
             realtimeText.textContent = data.text;
             realtimeText.classList.add("has-content");
         });
 
         socket.on("segment_final", (data) => {
+            console.log("[socket] segment_final:", data);
             realtimeText.textContent = "";
             realtimeText.classList.remove("has-content");
             resultArea.textContent += data.text;
         });
 
         socket.on("post_corrected", (data) => {
+            console.log("[socket] post_corrected:", data);
             const current = resultArea.textContent;
             if (current.endsWith(data.original)) {
                 resultArea.textContent = current.slice(0, -data.original.length) + data.text;
@@ -130,17 +135,26 @@ async function startRecording() {
         });
 
         socket.on("complete", (data) => {
+            console.log("[socket] complete:", data);
             statusText.textContent = "录音完成";
         });
 
         socket.on("error", (data) => {
+            console.log("[socket] error:", data);
             statusText.textContent = "错误: " + data.message;
-            console.error("Error:", data.message);
+        });
+
+        socket.on("disconnect", (reason) => {
+            console.log("[socket] disconnect:", reason);
         });
 
         workletNode.port.onmessage = (e) => {
+            console.log("[audio] worklet packet, bytes:", e.data.byteLength);
             if (socket && socket.connected) {
                 socket.emit("audio", e.data);
+                console.log("[audio] emitted to socket");
+            } else {
+                console.log("[audio] socket not ready, dropped");
             }
         };
 
