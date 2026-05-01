@@ -94,6 +94,7 @@ async function startRecording() {
         analyser = audioContext.createAnalyser();
         analyser.fftSize = 256;
         source.connect(analyser);
+        analyser.connect(workletNode);
 
         socket = io({ transports: ["websocket"] });
 

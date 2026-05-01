@@ -1,3 +1,4 @@
+import asyncio
 import socketio
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -23,16 +24,26 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Global engine instance (lazy-loaded)
 _engine = None
+_engine_lock = asyncio.Lock()
 
 
-def get_engine():
+def _create_engine():
+    return WhisperEngine(
+        config.whisper_model,
+        device=config.whisper_device,
+        compute_type=config.whisper_compute_type,
+    )
+
+
+async def get_engine():
     global _engine
     if _engine is None:
-        _engine = WhisperEngine(
-            config.whisper_model,
-            device=config.whisper_device,
-            compute_type=config.whisper_compute_type,
-        )
+        async with _engine_lock:
+            if _engine is None:
+                print("[engine] loading whisper model, please wait...")
+                loop = asyncio.get_event_loop()
+                _engine = await loop.run_in_executor(None, _create_engine)
+                print("[engine] model loaded")
     return _engine
 
 
