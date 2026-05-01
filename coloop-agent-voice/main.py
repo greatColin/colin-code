@@ -76,7 +76,7 @@ async def disconnect(sid):
 
 @sio.on("start")
 async def on_start(sid, data):
-    engine = get_engine()
+    engine = await get_engine()
     corrector = get_post_corrector()
 
     async def emit(event, payload):
