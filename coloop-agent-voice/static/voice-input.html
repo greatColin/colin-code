@@ -45,8 +45,24 @@
 
         .mic-wrapper {
             display: flex;
-            justify-content: center;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
             padding: 8px 0;
+        }
+
+        .waveform {
+            width: 100%;
+            height: 60px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        .waveform.active {
+            opacity: 1;
         }
 
         .mic-btn {
@@ -221,6 +237,7 @@
         <div class="header">语音输入器</div>
         <div class="mic-wrapper">
             <button class="mic-btn" id="micBtn">&#127908;</button>
+            <canvas class="waveform" id="waveform" width="480" height="60"></canvas>
         </div>
         <div class="status-text" id="statusText">点击麦克风开始录音</div>
         <div class="realtime-area" id="realtimeText"></div>

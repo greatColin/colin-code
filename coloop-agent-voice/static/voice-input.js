@@ -12,8 +12,72 @@ let audioContext = null;
 let mediaStream = null;
 let workletNode = null;
 let isRecording = false;
+let analyser = null;
+let animationId = null;
+let envelopeHistory = [];
 
 const SAMPLE_RATE = 16000;
+const MAX_HISTORY = 120; // ~2 seconds at 60fps
+
+const waveformCanvas = document.getElementById("waveform");
+const waveformCtx = waveformCanvas.getContext("2d");
+
+function drawWaveform() {
+    if (!analyser) return;
+
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    analyser.getByteTimeDomainData(dataArray);
+
+    let peak = 0;
+    for (let i = 0; i < bufferLength; i++) {
+        const v = Math.abs(dataArray[i] - 128) / 128;
+        if (v > peak) peak = v;
+    }
+
+    envelopeHistory.push(peak);
+    if (envelopeHistory.length > MAX_HISTORY) {
+        envelopeHistory.shift();
+    }
+
+    const width = waveformCanvas.width;
+    const height = waveformCanvas.height;
+    const centerY = height / 2;
+
+    waveformCtx.clearRect(0, 0, width, height);
+
+    // Fill area
+    waveformCtx.beginPath();
+    waveformCtx.moveTo(0, centerY);
+    for (let i = 0; i < envelopeHistory.length; i++) {
+        const x = (i / (MAX_HISTORY - 1)) * width;
+        const y = centerY - envelopeHistory[i] * centerY * 0.85;
+        waveformCtx.lineTo(x, y);
+    }
+    for (let i = envelopeHistory.length - 1; i >= 0; i--) {
+        const x = (i / (MAX_HISTORY - 1)) * width;
+        const y = centerY + envelopeHistory[i] * centerY * 0.85;
+        waveformCtx.lineTo(x, y);
+    }
+    waveformCtx.closePath();
+    waveformCtx.fillStyle = "rgba(255, 255, 255, 0.12)";
+    waveformCtx.fill();
+
+    // Stroke line
+    waveformCtx.beginPath();
+    for (let i = 0; i < envelopeHistory.length; i++) {
+        const x = (i / (MAX_HISTORY - 1)) * width;
+        const y = centerY - envelopeHistory[i] * centerY * 0.85;
+        if (i === 0) waveformCtx.moveTo(x, y);
+        else waveformCtx.lineTo(x, y);
+    }
+    waveformCtx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+    waveformCtx.lineWidth = 1.5;
+    waveformCtx.lineJoin = "round";
+    waveformCtx.stroke();
+
+    animationId = requestAnimationFrame(drawWaveform);
+}
 
 async function startRecording() {
     try {
@@ -27,7 +91,11 @@ async function startRecording() {
         const source = audioContext.createMediaStreamSource(mediaStream);
         workletNode = new AudioWorkletNode(audioContext, "pcm-processor");
 
-        socket = io();
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+
+        socket = io({ transports: ["websocket"] });
 
         socket.on("connect", () => {
             socket.emit("start", {
@@ -38,6 +106,9 @@ async function startRecording() {
                 }
             });
             statusText.textContent = "正在录音...";
+            waveformCanvas.classList.add("active");
+            envelopeHistory = [];
+            drawWaveform();
         });
 
         socket.on("partial", (data) => {
@@ -96,6 +167,14 @@ function stopRecording() {
         workletNode.disconnect();
         workletNode = null;
     }
+    if (analyser) {
+        analyser.disconnect();
+        analyser = null;
+    }
+    if (animationId) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+    }
     if (audioContext) {
         audioContext.close();
         audioContext = null;
@@ -109,6 +188,10 @@ function stopRecording() {
     micBtn.textContent = "🎙️";
     realtimeText.textContent = "";
     realtimeText.classList.remove("has-content");
+    waveformCanvas.classList.remove("active");
+    if (waveformCtx) {
+        waveformCtx.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+    }
 }
 
 micBtn.addEventListener("click", () => {
