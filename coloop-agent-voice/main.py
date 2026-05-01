@@ -22,9 +22,8 @@ _engine = None
 def get_engine():
     global _engine
     if _engine is None:
-        model_path = str(config.whisper_model_dir / config.whisper_model)
         _engine = WhisperEngine(
-            model_path,
+            config.whisper_model,
             device=config.whisper_device,
             compute_type=config.whisper_compute_type,
         )
@@ -83,7 +82,7 @@ async def on_audio(sid, data):
 
 
 @sio.on("stop")
-async def on_stop(sid, data):
+async def on_stop(sid, data=None):
     if sid in sessions:
         await sessions[sid].stop()
         del sessions[sid]
