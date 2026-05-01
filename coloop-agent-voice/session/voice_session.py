@@ -25,13 +25,19 @@ class VoiceSession:
         self.segment_index = 0
         self.full_text = ""
         self._lock = asyncio.Lock()
+        self._audio_buffer = bytearray()
 
     async def feed_audio(self, pcm_bytes: bytes):
-        print(f"[feed_audio] {len(pcm_bytes)} bytes")
+        import array
+        arr = array.array('h', pcm_bytes)
+        max_val = max(abs(x) for x in arr) if arr else 0
+        print(f"[feed_audio] {len(pcm_bytes)} bytes, max_amp={max_val}")
         async with self._lock:
-            segment = self.vad.process(pcm_bytes)
-            print(f"[feed_audio] vad segment={'yes' if segment else 'no'} ({len(segment) if segment else 0})")
-            if segment:
+            self._audio_buffer.extend(pcm_bytes)
+            # 累积约 2 秒音频后转录（绕过 VAD 测试）
+            if len(self._audio_buffer) >= 16000 * 2 * 2:
+                segment = bytes(self._audio_buffer)
+                self._audio_buffer = bytearray()
                 await self._transcribe_segment(segment)
 
     async def _transcribe_segment(self, audio_bytes: bytes):
@@ -60,13 +66,15 @@ class VoiceSession:
                 self.last_text = text
 
         except Exception as e:
+            print(f"[_transcribe] error: {e}")
             await self.emit("error", {"message": str(e)})
 
     async def finalize_segment(self):
         async with self._lock:
-            segment = self.vad.flush()
-            if not segment:
+            if len(self._audio_buffer) == 0:
                 return
+            segment = bytes(self._audio_buffer)
+            self._audio_buffer = bytearray()
 
             text = self.engine.transcribe(
                 segment, language=self.config.get("lang", "zh")
