@@ -38,7 +38,9 @@ coloop-agent-core/src/main/java/com/coloop/agent/capability/subagent/
 └── SubagentManagementCapability.java // CompositeCapability
 
 coloop-agent-server/src/main/java/com/coloop/agent/server/hook/
-└── SubagentLoggingHook.java          // 包装 WebSocketLoggingHook,事件附 agentName
+├── AbstractWebSocketLoggingHook.java   // 抽出的公共基类(本次提取)
+├── WebSocketLoggingHook.java           // 主代理用,继承基类,agentName=null
+└── SubagentLoggingHook.java            // 子代理用,继承基类,事件附 agentName
 ```
 
 ### 2.2 数据模型
@@ -148,22 +150,40 @@ public final class SubagentManagementCapability implements CompositeCapability {
 |---|---|---|---|
 | `to` | string | ✓ | 已存在子代理名 |
 | `message` | string | ✓ | 追加的用户消息 |
-| `summary` | string | ✗ | 5–10 词预览（侧栏显示用，可选）|
+| `summary` | string | ✗ | 5–10 词预览（与 Claude Code 对齐，向前兼容）；v1 仅在 WS 事件透传，前端不渲染|
 
 执行流程：
 1. `inst = registry.get(to)`；不存在返回 `Error: subagent '<to>' not found`
 2. `runLock` 内 `inst.agentLoop.chatStream(message, …)`
 3. 返回最终响应字符串
 
-**递归保护**：`AgentTool.execute` 内部把传入的 `tool_names` 自动剔除 `Agent` 与 `SendMessage`。即使主代理误传也不会让子代理获得这两个工具。
+**`tool_names` 默认值**：`SubagentLoopFactory` 在被创建时闭包持有"主代理父工具列表"。该列表在 `AgentService` 中**先构建好**（`StandardCapability.*` + 其他 composite 的工具），**再以闭包传入** `SubagentManagementCapability`，**最后**才把 `subagentCap` 通过 `.withComposite` 加进主代理——因此 `Agent` 与 `SendMessage` 自然不在父工具列表里。`tool_names` 不传时直接复用整个父工具列表。
+
+**递归保护**：除上述时序外，`AgentTool.execute` 仍在白名单匹配后**强制剔除** `Agent` 与 `SendMessage`，作为冗余防御（防止未来引入新组装路径时漏过）。
 
 ### 2.5 AgentService 装配（server）
 
-`AgentService.startChat` 中，主代理 CapabilityLoader 装配前先构造 `SubagentLoopFactory` 闭包：
+`AgentService.startChat` 中，按以下**严格顺序**装配，保证 `Agent` / `SendMessage` 不会出现在父工具列表里：
+
+1. 用 `CapabilityLoader` 累积所有非子代理能力（exec、filesystem、task_management 等），但**先不 build**
+2. 把累积到的工具列表快照（`List<Tool> parentTools`）作为闭包变量
+3. 构造 `SubagentLoopFactory` 闭包持有上述 `parentTools`、`provider`、`config`、`session`
+4. 构造 `SubagentManagementCapability(factory, listener)`
+5. `.withComposite(subagentCap)` 把 `Agent` / `SendMessage` 加进主代理工具集
+6. `build(provider, config)` 得到主 AgentLoop
 
 ```java
+// 步骤 1-2:先收集父工具
+CapabilityLoader main = new CapabilityLoader()
+    .withCapability(StandardCapability.EXEC_TOOL, config)
+    .withCapability(StandardCapability.READ_FILE_TOOL, config)
+    /* ... 其他 capability ... */
+    .withComposite(taskCap);
+List<Tool> parentTools = main.snapshotTools();   // 需新增 snapshotTools() 工具方法
+
+// 步骤 3:工厂闭包
 SubagentLoopFactory factory = (name, sysPrompt, toolNames) -> {
-    List<Tool> filtered = filterTools(parentTools, toolNames);
+    List<Tool> filtered = filterTools(parentTools, toolNames); // toolNames=null 则全用
     SubagentLoggingHook subHook = new SubagentLoggingHook(session, name);
     CapabilityLoader sub = new CapabilityLoader()
         .withMessageBuilder(new StandardMessageBuilder(
@@ -175,12 +195,18 @@ SubagentLoopFactory factory = (name, sysPrompt, toolNames) -> {
     return subLoop;
 };
 
-SubagentEventListener listener = (inst) -> sendCreated(session, inst);
-                                 // onCleared 类似
+// 步骤 4-5:加入子代理 composite
+SubagentEventListener listener = ...; // onCreated/onCleared → WS 推送
 SubagentManagementCapability subagentCap = new SubagentManagementCapability(factory, listener);
+main.withComposite(subagentCap)
+    .withHook(mainHook)
+    .withInterceptor(cmdInterceptor);
+
+// 步骤 6:build
+AgentLoop agentLoop = main.build(provider, config);
 ```
 
-主代理装配链增加 `.withComposite(subagentCap)`。
+> 实现注意：`CapabilityLoader` 当前没有 `snapshotTools()` 方法，需小幅扩展。该方法返回当前已注册 tools 的不可变快照。
 
 ### 2.6 与 `/new-session` 等命令的协同
 
@@ -215,7 +241,9 @@ public class WebSocketMessage {
 
 ### 3.3 `SubagentLoggingHook`
 
-实现 `AgentHook`，构造时持有 `WebSocketSession + agentName`。所有方法体把要发送的 `WebSocketMessage` 调 `.withAgent(agentName)` 后再 `session.sendMessage(...)`。其他逻辑（context_usage、stream_chunk 等）与 `WebSocketLoggingHook` 一致——可考虑抽公共基类避免重复。
+实现 `AgentHook`，构造时持有 `WebSocketSession + agentName`。所有方法体把要发送的 `WebSocketMessage` 调 `.withAgent(agentName)` 后再 `session.sendMessage(...)`。
+
+为避免与 `WebSocketLoggingHook` 重复实现完整的事件转 JSON 推送逻辑，**抽取一个 `AbstractWebSocketLoggingHook`** 作为 `coloop-agent-server` 模块内的基类：包含通用的 send/序列化/`isOpen()` 检查。`WebSocketLoggingHook` 与 `SubagentLoggingHook` 都继承它，前者 `agentName=null`，后者覆盖 send 时附 `agentName`。
 
 ### 3.4 移除/保留
 
@@ -250,27 +278,42 @@ CSS：复用现有 task-sidebar 的样式骨架（侧栏宽度、折叠交互）
 
 ### 4.2 `chat.js` 改造
 
-**关键设计**：`chatContainer` 始终只渲染当前激活 agent 的消息；非激活 agent 的 DOM 用 `DocumentFragment` 暂存。
+**核心数据结构**：每个 agent 拥有独立的"DOM 缓冲 + 流式状态"，主代理流到一半被子代理事件打断也不串台。
 
 ```js
-const agentBuffers = new Map();           // agentName -> { fragment, agentMeta }
-let currentAgent = 'main';
-agentBuffers.set('main', { fragment: document.createDocumentFragment(), meta: { name:'main' } });
+// agentName -> { fragment, currentAssistantEl, streamBuffer, lastRenderTime, streamRenderTimer, meta }
+const agentState = new Map();
 
-function getActiveContainer() {
-    return chatContainer;   // 只对 currentAgent 直接 append;其他写入 buffer
+function ensureAgent(name, meta) {
+    if (!agentState.has(name)) {
+        agentState.set(name, {
+            fragment: document.createDocumentFragment(),
+            currentAssistantEl: null,
+            streamBuffer: '',
+            lastRenderTime: 0,
+            streamRenderTimer: null,
+            meta: meta || { name }
+        });
+    }
 }
+ensureAgent('main', { name: 'main' });
+let currentAgent = 'main';
+```
 
+**渲染函数签名调整**：所有 `renderXxx` / `appendStreamChunk` / `finalizeAssistant` 等**新增首个参数 `agentName`**。内部的 `chatContainer.appendChild(...)` 改为：
+
+```js
 function appendToAgent(agentName, el) {
+    const st = agentState.get(agentName);
     if (agentName === currentAgent) {
         chatContainer.appendChild(el);
     } else {
-        agentBuffers.get(agentName).fragment.appendChild(el);
+        st.fragment.appendChild(el);
     }
 }
 ```
 
-所有现有渲染函数（`renderUser`、`renderToolCall`、`renderToolResult`、`renderThinking`、`appendStreamChunk`、`finalizeAssistant`、`renderLoopStart`、`renderSystem`、`renderError`）签名不变，内部调用 `appendElement(...)` 与 `insertBeforeAssistant(...)` 改为接收 `agentName` 参数（默认 main），内部走 `appendToAgent`。
+模块级的 `currentAssistantEl` / `streamBuffer` / `streamRenderTimer` / `lastRenderTime` 全部移入 `agentState[agentName]`。
 
 **消息路由**：
 
@@ -280,16 +323,16 @@ function handleMessage(msg) {
     switch (msg.type) {
         case 'subagent_created':
             addAgentToSidebar(msg.payload);
-            agentBuffers.set(msg.payload.name, { fragment: document.createDocumentFragment(), meta: msg.payload });
+            ensureAgent(msg.payload.name, msg.payload);
             return;
         case 'subagent_cleared':
             removeAgentFromSidebar(msg.payload.name);
-            agentBuffers.delete(msg.payload.name);
+            agentState.delete(msg.payload.name);
             if (currentAgent === msg.payload.name) switchToAgent('main');
             return;
-        // ...其他 type 走原有处理,但注意要把 agent 传入渲染函数...
+        // ...其他 type:dispatch 到对应 renderXxx(agent, msg.payload)...
     }
-    renderAgentMessage(agent, msg);
+    dispatchAgentMessage(agent, msg);
 }
 ```
 
@@ -299,10 +342,10 @@ function handleMessage(msg) {
 function switchToAgent(name) {
     if (name === currentAgent) return;
     // 1. 把 chatContainer 当前的 children 移回 currentAgent 的 fragment
-    const currentBuf = agentBuffers.get(currentAgent);
+    const currentBuf = agentState.get(currentAgent);
     while (chatContainer.firstChild) currentBuf.fragment.appendChild(chatContainer.firstChild);
     // 2. 把目标 fragment 的 children 装入 chatContainer
-    const targetBuf = agentBuffers.get(name);
+    const targetBuf = agentState.get(name);
     while (targetBuf.fragment.firstChild) chatContainer.appendChild(targetBuf.fragment.firstChild);
     // 3. 更新高亮
     currentAgent = name;
