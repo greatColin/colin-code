@@ -2,23 +2,23 @@ import asyncio
 import time
 from typing import Optional, Callable
 
-from engine.whisper_engine import WhisperEngine
+from core.transcription_strategy import TranscriptionStrategy
+from core.correction_strategy import CorrectionStrategy
 from audio.energy_vad import EnergyVAD
 from correction.streaming_diff import streaming_diff
-from correction.post_corrector import PostCorrector
 
 
 class VoiceSession:
     def __init__(
         self,
         config: dict,
-        engine: WhisperEngine,
-        post_corrector: Optional[PostCorrector] = None,
+        transcription_strategy: TranscriptionStrategy,
+        correction_strategy: Optional[CorrectionStrategy] = None,
         emit_callback: Optional[Callable] = None,
     ):
         self.config = config
-        self.engine = engine
-        self.post_corrector = post_corrector
+        self.transcription_strategy = transcription_strategy
+        self.correction_strategy = correction_strategy
         self.emit = emit_callback or (lambda _event, _payload: None)
 
         self.vad = EnergyVAD(
@@ -50,7 +50,7 @@ class VoiceSession:
 
     async def _preview_transcribe(self, audio_bytes: bytes):
         try:
-            text = self.engine.transcribe(
+            text = self.transcription_strategy.transcribe(
                 audio_bytes, language=self.config.get("lang", "zh")
             )
             if not text:
@@ -83,7 +83,7 @@ class VoiceSession:
 
     async def _finalize_segment_audio(self, audio_bytes: bytes):
         try:
-            text = self.engine.transcribe(
+            text = self.transcription_strategy.transcribe(
                 audio_bytes, language=self.config.get("lang", "zh")
             )
             print(f"[_finalize] {len(audio_bytes)} bytes, result='{text}'")
@@ -97,9 +97,9 @@ class VoiceSession:
             )
 
             corrected_text = text
-            if self.post_corrector and self.config.get("enable_post_correction", False):
+            if self.correction_strategy and self.config.get("enable_post_correction", False):
                 try:
-                    corrected_text = await self.post_corrector.correct(text)
+                    corrected_text = await self.correction_strategy.correct(text)
                     await self.emit(
                         "post_corrected",
                         {
