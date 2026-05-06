@@ -1,8 +1,9 @@
 import asyncio
+import time
 from typing import Optional, Callable
 
 from engine.whisper_engine import WhisperEngine
-from audio.vad_processor import VADProcessor
+from audio.energy_vad import EnergyVAD
 from correction.streaming_diff import streaming_diff
 from correction.post_corrector import PostCorrector
 
@@ -20,36 +21,40 @@ class VoiceSession:
         self.post_corrector = post_corrector
         self.emit = emit_callback or (lambda _event, _payload: None)
 
-        self.vad = VADProcessor()
+        self.vad = EnergyVAD(
+            threshold=config.get("vad_threshold", 500),
+            silence_timeout_ms=config.get("silence_timeout_ms", 1000),
+            max_segment_ms=config.get("max_segment_ms", 15000),
+        )
         self.last_text = ""
         self.segment_index = 0
         self.full_text = ""
         self._lock = asyncio.Lock()
-        self._audio_buffer = bytearray()
+        self._last_preview_time = 0.0
+        self._preview_interval = config.get("preview_interval_sec", 1.5)
 
     async def feed_audio(self, pcm_bytes: bytes):
-        import array
-        arr = array.array('h', pcm_bytes)
-        max_val = max(abs(x) for x in arr) if arr else 0
-        print(f"[feed_audio] {len(pcm_bytes)} bytes, max_amp={max_val}")
         async with self._lock:
-            self._audio_buffer.extend(pcm_bytes)
-            # 累积约 2 秒音频后转录（绕过 VAD 测试）
-            if len(self._audio_buffer) >= 16000 * 2 * 2:
-                segment = bytes(self._audio_buffer)
-                self._audio_buffer = bytearray()
-                await self._transcribe_segment(segment)
+            segment = self.vad.process(pcm_bytes)
+            if segment:
+                # Natural segment boundary detected
+                await self._finalize_segment_audio(segment)
 
-    async def _transcribe_segment(self, audio_bytes: bytes):
+            if self.vad.triggered:
+                now = time.monotonic()
+                if now - self._last_preview_time >= self._preview_interval:
+                    preview = self.vad.current_segment
+                    if len(preview) >= 16000 * 1 * 2:  # at least 1 second
+                        await self._preview_transcribe(preview)
+                        self._last_preview_time = now
+
+    async def _preview_transcribe(self, audio_bytes: bytes):
         try:
-            print(f"[_transcribe] {len(audio_bytes)} bytes, lang={self.config.get('lang', 'zh')}")
             text = self.engine.transcribe(
                 audio_bytes, language=self.config.get("lang", "zh")
             )
-            print(f"[_transcribe] result='{text}'")
             if not text:
                 return
-
             if self.config.get("enable_streaming_correction", True):
                 diff = streaming_diff(self.last_text, text)
                 if diff["changed"]:
@@ -63,26 +68,29 @@ class VoiceSession:
                     )
                     self.last_text = text
             else:
-                self.last_text = text
-
+                if text != self.last_text:
+                    await self.emit(
+                        "partial",
+                        {
+                            "text": text,
+                            "segment_index": self.segment_index,
+                            "is_stable": False,
+                        },
+                    )
+                    self.last_text = text
         except Exception as e:
-            print(f"[_transcribe] error: {e}")
-            await self.emit("error", {"message": str(e)})
+            print(f"[_preview_transcribe] error: {e}")
 
-    async def finalize_segment(self):
-        async with self._lock:
-            if len(self._audio_buffer) == 0:
-                return
-            segment = bytes(self._audio_buffer)
-            self._audio_buffer = bytearray()
-
+    async def _finalize_segment_audio(self, audio_bytes: bytes):
+        try:
             text = self.engine.transcribe(
-                segment, language=self.config.get("lang", "zh")
+                audio_bytes, language=self.config.get("lang", "zh")
             )
+            print(f"[_finalize] {len(audio_bytes)} bytes, result='{text}'")
             if not text:
+                self.last_text = ""
                 return
 
-            self.last_text = text
             await self.emit(
                 "segment_final",
                 {"text": text, "segment_index": self.segment_index},
@@ -106,6 +114,17 @@ class VoiceSession:
             self.full_text += corrected_text + " "
             self.segment_index += 1
             self.last_text = ""
+            self._last_preview_time = 0.0
+
+        except Exception as e:
+            print(f"[_finalize] error: {e}")
+            await self.emit("error", {"message": str(e)})
+
+    async def finalize_segment(self):
+        async with self._lock:
+            segment = self.vad.flush()
+            if segment:
+                await self._finalize_segment_audio(segment)
 
     async def stop(self):
         await self.finalize_segment()
