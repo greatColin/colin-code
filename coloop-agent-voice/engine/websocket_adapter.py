@@ -3,46 +3,43 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import json
-import websockets
+import base64
+import websocket
 from core.transcription_strategy import TranscriptionStrategy
 
 
 class WebSocketTranscriptionStrategy(TranscriptionStrategy):
-    """WebSocket-based streaming ASR transcription strategy"""
+    """通过 WebSocket 流式调用 ASR 服务的转写策略"""
 
-    def __init__(self, endpoint: str, api_key: str = "", timeout: float = 30.0):
-        self.endpoint = endpoint
+    def __init__(self, ws_url: str, api_key: str = None):
+        self.ws_url = ws_url
         self.api_key = api_key
-        self.timeout = timeout
 
-    async def transcribe(self, audio_bytes: bytes, language: str = "zh") -> str:
-        """Send audio bytes via WebSocket and return transcription"""
+    def transcribe(self, audio_bytes: bytes, language: str = "zh") -> str:
         headers = {}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
 
-        async with websockets.connect(
-            self.endpoint,
-            extra_headers=headers,
-            open_timeout=self.timeout,
-            close_timeout=self.timeout,
-        ) as websocket:
-            # Send audio data
-            await websocket.send(audio_bytes)
+        ws = websocket.create_connection(self.ws_url, header=headers, timeout=30)
+        try:
+            payload = {
+                "audio": base64.b64encode(audio_bytes).decode("utf-8"),
+                "language": language,
+                "is_last": True,
+            }
+            ws.send(json.dumps(payload))
 
-            # Send end signal
-            await websocket.send(json.dumps({"type": "end", "language": language}))
-
-            # Collect transcription results
-            transcription_parts = []
-            async for message in websocket:
-                data = json.loads(message)
-                if data.get("type") == "transcript":
-                    transcription_parts.append(data.get("text", ""))
-                elif data.get("type") == "final":
+            texts = []
+            while True:
+                raw = ws.recv()
+                data = json.loads(raw)
+                if "text" in data:
+                    texts.append(data["text"])
+                if data.get("is_final", True):
                     break
-
-            return " ".join(transcription_parts).strip()
+            return "".join(texts).strip()
+        finally:
+            ws.close()
 
     def get_name(self) -> str:
-        return "websocket_transcription"
+        return "websocket"

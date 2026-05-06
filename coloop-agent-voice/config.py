@@ -1,99 +1,67 @@
-import os
-import re
 import json
+import re
+import os
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 
 class VoiceConfig:
-    def __init__(self, setting_file: Optional[str] = None):
-        self._setting_file = setting_file or self._find_setting_file()
-        self._settings: Dict[str, Any] = {}
-        self._voice_config: Dict[str, Any] = {}
+    """Voice module configuration. Reads from coloop-agent-setting.json."""
+
+    DEFAULTS = {
+        "host": "0.0.0.0",
+        "port": 8000,
+        "language": "zh",
+        "enableStreamingCorrection": True,
+    }
+
+    def __init__(self, setting_file: str = None):
+        self._raw: Dict[str, Any] = {}
         self._models: Dict[str, Any] = {}
+        if setting_file:
+            self._load(setting_file)
+        self._voice = self._raw.get("voice", {})
 
-        if self._setting_file and Path(self._setting_file).exists():
-            self._load_settings()
+    def _load(self, path: str):
+        p = Path(path)
+        if not p.exists():
+            print(f"[VoiceConfig] setting file not found: {path}, using defaults")
+            return
+        with open(p, "r", encoding="utf-8") as f:
+            raw_text = f.read()
+        raw_text = self._expand_env_vars(raw_text)
+        self._raw = json.loads(raw_text)
+        self._models = self._raw.get("models", {})
 
-        # Apply voice configuration with defaults
-        voice = self._voice_config
-        self.host = voice.get("host", "0.0.0.0")
-        self.port = int(voice.get("port", 8000))
-        self.whisper_model = voice.get("whisperModel", "base")
-        self.whisper_device = voice.get("whisperDevice", "cpu")
-        self.whisper_compute_type = voice.get("whisperComputeType", "int8")
-        self.whisper_model_dir = Path(voice.get("whisperModelDir", "./models"))
-        self.default_lang = voice.get("defaultLang", "zh")
-        self.enable_streaming_correction = voice.get("enableStreamingCorrection", True)
-        self.enable_post_correction = voice.get("enablePostCorrection", False)
-        self.post_correction_model = voice.get("postCorrectionModel", "")
+    @staticmethod
+    def _expand_env_vars(text: str) -> str:
+        def replacer(match):
+            var_name = match.group(1)
+            return os.environ.get(var_name, match.group(0))
+        return re.sub(r"\$\{(\w+)\}", replacer, text)
 
-        # Transcription strategy configuration
-        self.transcription_strategy = voice.get("transcriptionStrategy", "local_whisper")
-        self.transcription_endpoint = voice.get("transcriptionEndpoint", "")
-        self.transcription_api_key = voice.get("transcriptionApiKey", "")
+    def get(self, key: str) -> Any:
+        return self._voice.get(key, self.DEFAULTS.get(key))
 
-        # Correction strategy configuration
-        self.correction_strategy = voice.get("correctionStrategy", "no_op")
-        self.correction_model = voice.get("correctionModel", "")
+    def get_transcription_strategy_name(self) -> str:
+        return self._voice.get("transcription", {}).get("strategy", "local_whisper")
 
-    def _find_setting_file(self) -> Optional[str]:
-        """Find the setting file in common locations"""
-        candidates = [
-            Path("coloop-agent-setting.json"),
-            Path("../coloop-agent-setting.json"),
-            Path("coloop-agent-core/src/main/resources/coloop-agent-setting.json"),
-            Path.home() / ".coloop" / "coloop-agent-setting.json",
-        ]
-        for candidate in candidates:
-            if candidate.exists():
-                return str(candidate)
-        return None
+    def get_transcription_params(self, strategy_name: str) -> dict:
+        return self._voice.get("transcription", {}).get("strategies", {}).get(strategy_name, {})
 
-    def _load_settings(self):
-        """Load settings from JSON file with environment variable expansion"""
-        with open(self._setting_file, "r", encoding="utf-8") as f:
-            content = f.read()
-            # Expand environment variables like ${VAR_NAME}
-            content = re.sub(
-                r"\$\{(\w+)\}",
-                lambda m: os.environ.get(m.group(1), m.group(0)),
-                content,
-            )
-            self._settings = json.loads(content)
+    def get_correction_strategy_name(self) -> str:
+        return self._voice.get("correction", {}).get("strategy", "none")
 
-        self._models = self._settings.get("models", {})
-        self._voice_config = self._settings.get("voice", {})
+    def get_correction_params(self, strategy_name: str) -> dict:
+        return self._voice.get("correction", {}).get("strategies", {}).get(strategy_name, {})
 
-    def get_model_config(self, name: str) -> Optional[Dict[str, str]]:
+    def get_model_config(self, name: str) -> Optional[Dict[str, Any]]:
         return self._models.get(name)
 
-    def get_post_correction_config(self) -> Optional[Dict[str, str]]:
-        if not self.enable_post_correction:
-            return None
+    @property
+    def host(self) -> str:
+        return self.get("host")
 
-        model_name = self.correction_model or self.post_correction_model
-        if not model_name:
-            return None
-
-        cfg = self._models.get(model_name)
-        if cfg:
-            return {
-                "api_base": cfg.get("apiBase", ""),
-                "api_key": cfg.get("apiKey", ""),
-                "model": cfg.get("model", ""),
-            }
-        return None
-
-    def get_transcription_config(self) -> Dict[str, Any]:
-        """Get transcription strategy configuration"""
-        return {
-            "strategy": self.transcription_strategy,
-            "endpoint": self.transcription_endpoint,
-            "api_key": self.transcription_api_key,
-            "model": self.whisper_model,
-            "device": self.whisper_device,
-            "compute_type": self.whisper_compute_type,
-            "model_dir": str(self.whisper_model_dir),
-            "language": self.default_lang,
-        }
+    @property
+    def port(self) -> int:
+        return self.get("port")

@@ -11,33 +11,38 @@ from correction.streaming_diff import streaming_diff
 class VoiceSession:
     def __init__(
         self,
-        config: dict,
         transcription_strategy: TranscriptionStrategy,
-        correction_strategy: Optional[CorrectionStrategy] = None,
+        correction_strategy: CorrectionStrategy,
         emit_callback: Optional[Callable] = None,
+        language: str = "zh",
+        enable_streaming_correction: bool = True,
+        vad_threshold: int = 500,
+        silence_timeout_ms: int = 1000,
+        max_segment_ms: int = 15000,
+        preview_interval_sec: float = 1.5,
     ):
-        self.config = config
-        self.transcription_strategy = transcription_strategy
-        self.correction_strategy = correction_strategy
+        self.transcription = transcription_strategy
+        self.correction = correction_strategy
         self.emit = emit_callback or (lambda _event, _payload: None)
+        self.language = language
+        self.enable_streaming_correction = enable_streaming_correction
 
         self.vad = EnergyVAD(
-            threshold=config.get("vad_threshold", 500),
-            silence_timeout_ms=config.get("silence_timeout_ms", 1000),
-            max_segment_ms=config.get("max_segment_ms", 15000),
+            threshold=vad_threshold,
+            silence_timeout_ms=silence_timeout_ms,
+            max_segment_ms=max_segment_ms,
         )
         self.last_text = ""
         self.segment_index = 0
         self.full_text = ""
         self._lock = asyncio.Lock()
         self._last_preview_time = 0.0
-        self._preview_interval = config.get("preview_interval_sec", 1.5)
+        self._preview_interval = preview_interval_sec
 
     async def feed_audio(self, pcm_bytes: bytes):
         async with self._lock:
             segment = self.vad.process(pcm_bytes)
             if segment:
-                # Natural segment boundary detected
                 await self._finalize_segment_audio(segment)
 
             if self.vad.triggered:
@@ -50,12 +55,10 @@ class VoiceSession:
 
     async def _preview_transcribe(self, audio_bytes: bytes):
         try:
-            text = self.transcription_strategy.transcribe(
-                audio_bytes, language=self.config.get("lang", "zh")
-            )
+            text = self.transcription.transcribe(audio_bytes, language=self.language)
             if not text:
                 return
-            if self.config.get("enable_streaming_correction", True):
+            if self.enable_streaming_correction:
                 diff = streaming_diff(self.last_text, text)
                 if diff["changed"]:
                     await self.emit(
@@ -83,9 +86,7 @@ class VoiceSession:
 
     async def _finalize_segment_audio(self, audio_bytes: bytes):
         try:
-            text = self.transcription_strategy.transcribe(
-                audio_bytes, language=self.config.get("lang", "zh")
-            )
+            text = self.transcription.transcribe(audio_bytes, language=self.language)
             print(f"[_finalize] {len(audio_bytes)} bytes, result='{text}'")
             if not text:
                 self.last_text = ""
@@ -97,9 +98,9 @@ class VoiceSession:
             )
 
             corrected_text = text
-            if self.correction_strategy and self.config.get("enable_post_correction", False):
-                try:
-                    corrected_text = await self.correction_strategy.correct(text)
+            try:
+                corrected_text = await self.correction.correct(text)
+                if corrected_text != text:
                     await self.emit(
                         "post_corrected",
                         {
@@ -108,8 +109,8 @@ class VoiceSession:
                             "segment_index": self.segment_index,
                         },
                     )
-                except Exception:
-                    corrected_text = text
+            except Exception:
+                corrected_text = text
 
             self.full_text += corrected_text + " "
             self.segment_index += 1

@@ -2,19 +2,6 @@
   "maxIterations": 50,
   "execTimeoutSeconds": 30,
   "defaultModel": "minimax",
-  "voice": {
-    "host": "0.0.0.0",
-    "port": 8000,
-    "whisperModel": "base",
-    "whisperDevice": "cpu",
-    "whisperComputeType": "int8",
-    "whisperModelDir": "./models",
-    "defaultLang": "zh",
-    "enableStreamingCorrection": true,
-    "enablePostCorrection": false,
-    "transcriptionStrategy": "local_whisper",
-    "correctionStrategy": "no_op"
-  },
   "models": {
     "openai": {
       "apiKey": "${COLIN_CODE_OPENAI_API_KEY}",
@@ -45,5 +32,38 @@
         "MINIMAX_API_HOST": "https://api.minimaxi.com"
       }
     }
+  },
+  "voice": {
+    "transcription": {
+      "strategy": "local_whisper",
+      "strategies": {
+        "local_whisper": {
+          "model": "base",
+          "device": "cpu",
+          "computeType": "int8",
+          "modelDir": "./models"
+        },
+        "http_api": {
+          "apiUrl": "",
+          "apiKey": "",
+          "model": ""
+        },
+        "websocket": {
+          "wsUrl": "",
+          "apiKey": ""
+        }
+      }
+    },
+    "correction": {
+      "strategy": "none",
+      "strategies": {
+        "llm": {
+          "model": "minimax"
+        },
+        "none": {}
+      }
+    },
+    "language": "zh",
+    "enableStreamingCorrection": true
   }
 }

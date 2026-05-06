@@ -1,84 +1,75 @@
-import asyncio
 import pytest
-import sys
-from unittest.mock import Mock, patch, AsyncMock
-
-# Inject faster-whisper mock before importing session
-sys.modules["faster_whisper"] = Mock()
-sys.modules["faster_whisper"].WhisperModel = Mock
-
+import asyncio
+from unittest.mock import MagicMock, AsyncMock
 from session.voice_session import VoiceSession
+from core.transcription_strategy import TranscriptionStrategy
+from core.correction_strategy import CorrectionStrategy
 
 
-class TestVoiceSession:
-    @pytest.fixture
-    def mock_transcription_strategy(self):
-        strategy = Mock()
-        strategy.transcribe.return_value = "test result"
-        strategy.get_name.return_value = "mock_transcription"
-        return strategy
+class MockTranscription(TranscriptionStrategy):
+    def __init__(self, result="hello"):
+        self.result = result
+        self.calls = []
 
-    @pytest.fixture
-    def mock_emit(self):
-        return AsyncMock()
+    def transcribe(self, audio_bytes: bytes, language: str = "zh") -> str:
+        self.calls.append(("transcribe", audio_bytes, language))
+        return self.result
 
-    @pytest.mark.asyncio
-    async def test_feed_audio_triggers_transcribe(self, mock_transcription_strategy, mock_emit):
-        session = VoiceSession(
-            config={"lang": "zh", "enable_streaming_correction": True},
-            transcription_strategy=mock_transcription_strategy,
-            emit_callback=mock_emit,
-        )
+    def get_name(self) -> str:
+        return "mock"
 
-        audio = b"\x01\x00" * (16000 * 30 // 1000)
-        with patch.object(session.vad, "process", return_value=audio):
-            await session.feed_audio(audio)
 
-        mock_transcription_strategy.transcribe.assert_called_once()
-        mock_emit.assert_called()
+class MockCorrection(CorrectionStrategy):
+    def __init__(self, result="corrected"):
+        self.result = result
 
-    @pytest.mark.asyncio
-    async def test_streaming_correction_disabled(self, mock_transcription_strategy, mock_emit):
-        session = VoiceSession(
-            config={"lang": "zh", "enable_streaming_correction": False},
-            transcription_strategy=mock_transcription_strategy,
-            emit_callback=mock_emit,
-        )
+    async def correct(self, text: str) -> str:
+        return self.result
 
-        audio = b"\x01\x00" * (16000 * 30 // 1000)
-        with patch.object(session.vad, "process", return_value=audio):
-            await session.feed_audio(audio)
+    def get_name(self) -> str:
+        return "mock"
 
-        mock_transcription_strategy.transcribe.assert_called_once()
 
-    @pytest.mark.asyncio
-    async def test_finalize_segment(self, mock_transcription_strategy, mock_emit):
-        correction_strategy = AsyncMock()
-        correction_strategy.correct.return_value = "corrected result"
-        correction_strategy.get_name.return_value = "mock_correction"
+@pytest.mark.asyncio
+async def test_session_uses_injected_strategies():
+    transcription = MockTranscription(result="你好")
+    correction = MockCorrection(result="你好。")
+    emitted = []
 
-        session = VoiceSession(
-            config={"lang": "zh", "enable_streaming_correction": True, "enable_post_correction": True},
-            transcription_strategy=mock_transcription_strategy,
-            correction_strategy=correction_strategy,
-            emit_callback=mock_emit,
-        )
+    async def emit(event, payload):
+        emitted.append((event, payload))
 
-        audio = b"\x01\x00" * 100
-        with patch.object(session.vad, "flush", return_value=audio):
-            await session.finalize_segment()
+    session = VoiceSession(
+        transcription_strategy=transcription,
+        correction_strategy=correction,
+        emit_callback=emit,
+        language="zh",
+        enable_streaming_correction=False,
+    )
 
-        mock_emit.assert_any_call("segment_final", {"text": "test result", "segment_index": 0})
-        mock_emit.assert_any_call("post_corrected", {"text": "corrected result", "original": "test result", "segment_index": 0})
+    await session._finalize_segment_audio(b"\x00\x00" * 16000)
 
-    @pytest.mark.asyncio
-    async def test_stop(self, mock_transcription_strategy, mock_emit):
-        session = VoiceSession(
-            config={"lang": "zh"},
-            transcription_strategy=mock_transcription_strategy,
-            emit_callback=mock_emit,
-        )
+    assert len(transcription.calls) == 1
+    events = [e[0] for e in emitted]
+    assert "segment_final" in events
+    assert "post_corrected" in events
 
-        with patch.object(session, "finalize_segment", new_callable=AsyncMock):
-            await session.stop()
-            mock_emit.assert_called_with("complete", {"full_text": ""})
+
+@pytest.mark.asyncio
+async def test_session_stop_emits_complete():
+    transcription = MockTranscription(result="")
+    correction = MockCorrection()
+    emitted = []
+
+    async def emit(event, payload):
+        emitted.append((event, payload))
+
+    session = VoiceSession(
+        transcription_strategy=transcription,
+        correction_strategy=correction,
+        emit_callback=emit,
+    )
+    session.full_text = "hello world "
+    await session.stop()
+
+    assert ("complete", {"full_text": "hello world"}) in emitted

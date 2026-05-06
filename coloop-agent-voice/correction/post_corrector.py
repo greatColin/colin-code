@@ -41,7 +41,7 @@ class LLMCorrectionStrategy(CorrectionStrategy):
             return data["choices"][0]["message"]["content"].strip()
 
     def get_name(self) -> str:
-        return "llm_correction"
+        return "llm"
 
 
 # Backward compatibility alias

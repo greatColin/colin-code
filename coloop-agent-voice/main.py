@@ -3,13 +3,13 @@ import socketio
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from config import VoiceConfig
-from voice_factory import VoiceFactory
+from factory import VoiceFactory
 from session.voice_session import VoiceSession
 
-config = VoiceConfig()
-factory = VoiceFactory(config)
+# Default setting file path
+DEFAULT_SETTING_FILE = "../coloop-agent-core/src/main/resources/coloop-agent-setting.json"
 
+factory = VoiceFactory(setting_file=DEFAULT_SETTING_FILE)
 sio = socketio.AsyncServer(
     async_mode="asgi",
     cors_allowed_origins="*",
@@ -23,38 +23,25 @@ socket_app = socketio.ASGIApp(sio, app)
 # Static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Global strategy instances (lazy-loaded)
+sessions = {}
+
+# Pre-create transcription strategy (may need lazy loading for heavy models)
 _transcription_strategy = None
-_correction_strategy = None
-_strategy_lock = asyncio.Lock()
+_transcription_lock = asyncio.Lock()
 
 
 async def get_transcription_strategy():
     global _transcription_strategy
     if _transcription_strategy is None:
-        async with _strategy_lock:
+        async with _transcription_lock:
             if _transcription_strategy is None:
-                print("[strategy] loading transcription strategy, please wait...")
+                print("[strategy] creating transcription strategy, please wait...")
                 loop = asyncio.get_event_loop()
                 _transcription_strategy = await loop.run_in_executor(
-                    None, factory.create_transcription_strategy
+                    None, factory.create_transcription
                 )
-                print(f"[strategy] loaded: {_transcription_strategy.get_name()}")
+                print(f"[strategy] ready: {_transcription_strategy.get_name()}")
     return _transcription_strategy
-
-
-def get_correction_strategy():
-    global _correction_strategy
-    if _correction_strategy is None:
-        try:
-            _correction_strategy = factory.create_correction_strategy()
-            print(f"[strategy] loaded correction: {_correction_strategy.get_name()}")
-        except Exception as e:
-            print(f"[strategy] correction strategy not available: {e}")
-    return _correction_strategy
-
-
-sessions = {}
 
 
 @sio.event
@@ -71,16 +58,22 @@ async def disconnect(sid):
 @sio.on("start")
 async def on_start(sid, data):
     transcription = await get_transcription_strategy()
-    correction = get_correction_strategy()
+    correction = factory.create_correction()
 
     async def emit(event, payload):
         await sio.emit(event, payload, room=sid)
 
+    session_config = data.get("config", {})
     session = VoiceSession(
-        config=data.get("config", {}),
         transcription_strategy=transcription,
         correction_strategy=correction,
         emit_callback=emit,
+        language=factory.config.get("language"),
+        enable_streaming_correction=factory.config.get("enableStreamingCorrection"),
+        vad_threshold=session_config.get("vad_threshold", 500),
+        silence_timeout_ms=session_config.get("silence_timeout_ms", 1000),
+        max_segment_ms=session_config.get("max_segment_ms", 15000),
+        preview_interval_sec=session_config.get("preview_interval_sec", 1.5),
     )
     sessions[sid] = session
 
@@ -105,10 +98,10 @@ async def on_stop(sid, data=None):
 async def startup_event():
     print("[startup] preloading transcription strategy...")
     await get_transcription_strategy()
-    print("[startup] strategy ready")
+    print("[startup] ready")
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(socket_app, host=config.host, port=config.port)
+    uvicorn.run(socket_app, host=factory.config.host, port=factory.config.port)
