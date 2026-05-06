@@ -12,20 +12,21 @@ from session.voice_session import VoiceSession
 
 class TestVoiceSession:
     @pytest.fixture
-    def mock_engine(self):
-        engine = Mock()
-        engine.transcribe.return_value = "test result"
-        return engine
+    def mock_transcription_strategy(self):
+        strategy = Mock()
+        strategy.transcribe.return_value = "test result"
+        strategy.get_name.return_value = "mock_transcription"
+        return strategy
 
     @pytest.fixture
     def mock_emit(self):
         return AsyncMock()
 
     @pytest.mark.asyncio
-    async def test_feed_audio_triggers_transcribe(self, mock_engine, mock_emit):
+    async def test_feed_audio_triggers_transcribe(self, mock_transcription_strategy, mock_emit):
         session = VoiceSession(
             config={"lang": "zh", "enable_streaming_correction": True},
-            engine=mock_engine,
+            transcription_strategy=mock_transcription_strategy,
             emit_callback=mock_emit,
         )
 
@@ -33,14 +34,14 @@ class TestVoiceSession:
         with patch.object(session.vad, "process", return_value=audio):
             await session.feed_audio(audio)
 
-        mock_engine.transcribe.assert_called_once()
+        mock_transcription_strategy.transcribe.assert_called_once()
         mock_emit.assert_called()
 
     @pytest.mark.asyncio
-    async def test_streaming_correction_disabled(self, mock_engine, mock_emit):
+    async def test_streaming_correction_disabled(self, mock_transcription_strategy, mock_emit):
         session = VoiceSession(
             config={"lang": "zh", "enable_streaming_correction": False},
-            engine=mock_engine,
+            transcription_strategy=mock_transcription_strategy,
             emit_callback=mock_emit,
         )
 
@@ -48,17 +49,18 @@ class TestVoiceSession:
         with patch.object(session.vad, "process", return_value=audio):
             await session.feed_audio(audio)
 
-        mock_engine.transcribe.assert_called_once()
+        mock_transcription_strategy.transcribe.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_finalize_segment(self, mock_engine, mock_emit):
-        corrector = AsyncMock()
-        corrector.correct.return_value = "corrected result"
+    async def test_finalize_segment(self, mock_transcription_strategy, mock_emit):
+        correction_strategy = AsyncMock()
+        correction_strategy.correct.return_value = "corrected result"
+        correction_strategy.get_name.return_value = "mock_correction"
 
         session = VoiceSession(
             config={"lang": "zh", "enable_streaming_correction": True, "enable_post_correction": True},
-            engine=mock_engine,
-            post_corrector=corrector,
+            transcription_strategy=mock_transcription_strategy,
+            correction_strategy=correction_strategy,
             emit_callback=mock_emit,
         )
 
@@ -70,10 +72,10 @@ class TestVoiceSession:
         mock_emit.assert_any_call("post_corrected", {"text": "corrected result", "original": "test result", "segment_index": 0})
 
     @pytest.mark.asyncio
-    async def test_stop(self, mock_engine, mock_emit):
+    async def test_stop(self, mock_transcription_strategy, mock_emit):
         session = VoiceSession(
             config={"lang": "zh"},
-            engine=mock_engine,
+            transcription_strategy=mock_transcription_strategy,
             emit_callback=mock_emit,
         )
 
