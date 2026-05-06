@@ -13,6 +13,8 @@ class VoiceConfig:
         "port": 8000,
         "language": "zh",
         "enableStreamingCorrection": True,
+        "enablePostCorrection": True,
+        "recognitionMode": "realtime",
     }
 
     def __init__(self, setting_file: str = None):
@@ -54,6 +56,11 @@ class VoiceConfig:
 
     def get_correction_params(self, strategy_name: str) -> dict:
         return self._voice.get("correction", {}).get("strategies", {}).get(strategy_name, {})
+
+    def get_coloop_ws_url(self) -> str:
+        return self._voice.get("coloopServer", {}).get(
+            "wsUrl", "ws://localhost:8080/ws/agent"
+        )
 
     def get_model_config(self, name: str) -> Optional[Dict[str, Any]]:
         return self._models.get(name)

@@ -55,7 +55,7 @@
       }
     },
     "correction": {
-      "strategy": "none",
+      "strategy": "llm",
       "strategies": {
         "llm": {
           "model": "minimax"
@@ -64,6 +64,11 @@
       }
     },
     "language": "zh",
-    "enableStreamingCorrection": true
+    "enableStreamingCorrection": true,
+    "enablePostCorrection": true,
+    "recognitionMode": "realtime",
+    "coloopServer": {
+      "wsUrl": "ws://localhost:8080/ws/agent"
+    }
   }
 }
