@@ -22,26 +22,40 @@ class SubagentInstanceTest {
         assertEquals("Plan the approach", inst.description);
         assertEquals("You are a planner.", inst.systemPrompt);
         assertEquals(List.of("read", "write"), inst.toolNames);
+        assertSame(mockLoop, inst.agentLoop);
         assertNotNull(inst.runLock);
         assertTrue(inst.createdAt >= before && inst.createdAt <= after);
         assertFalse(inst.running);
     }
 
     @Test
-    void testFieldsAreFinal() {
+    void testRunningFlagCanBeToggled() {
         SubagentInstance inst = new SubagentInstance(
             "a", "d", "sp", List.of(), null
         );
-        // Verify no mutation path — these are final fields
+        assertFalse(inst.running);
         inst.running = true;
-        assertTrue(inst.running); // volatile write works
+        assertTrue(inst.running);
+        inst.running = false;
+        assertFalse(inst.running);
     }
 
     @Test
-    void testNullToolNamesAcceptsAnyList() {
+    void testNullToolNamesMeansInheritParentTools() {
+        // null toolNames signals "use all parent tools" per spec section 2.4
         SubagentInstance inst = new SubagentInstance(
             "nulltools", "desc", "sp", null, null
         );
         assertNull(inst.toolNames);
+    }
+
+    @Test
+    void testRunLockIsSameObjectAcrossReads() {
+        SubagentInstance inst = new SubagentInstance(
+            "locktest", "desc", "sp", List.of(), null
+        );
+        Object lock1 = inst.runLock;
+        Object lock2 = inst.runLock;
+        assertSame(lock1, lock2);
     }
 }

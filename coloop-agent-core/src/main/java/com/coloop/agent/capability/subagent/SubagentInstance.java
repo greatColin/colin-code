@@ -3,6 +3,20 @@ package com.coloop.agent.capability.subagent;
 import com.coloop.agent.core.agent.AgentLoop;
 import java.util.List;
 
+/**
+ * Immutable snapshot of a subagent's identity and runtime state.
+ *
+ * <p>Identity fields ({@code name}, {@code description}, {@code systemPrompt},
+ * {@code toolNames}) are set once at construction and never change.
+ * {@code toolNames} may be {@code null}, meaning the subagent inherits
+ * the full parent toolset.</p>
+ *
+ * <p>Runtime state: {@code running} indicates whether the subagent is
+ * currently inside a {@code chatStream} call. {@code runLock} is the
+ * synchronization object callers use to serialize access to the loop.
+ * Both are managed by the caller (AgentTool / SendMessageTool),
+ * not by this class.</p>
+ */
 public final class SubagentInstance {
     public final String name;
     public final String description;
