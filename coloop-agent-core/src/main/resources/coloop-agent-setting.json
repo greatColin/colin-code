@@ -2,6 +2,19 @@
   "maxIterations": 50,
   "execTimeoutSeconds": 30,
   "defaultModel": "minimax",
+  "voice": {
+    "host": "0.0.0.0",
+    "port": 8000,
+    "whisperModel": "base",
+    "whisperDevice": "cpu",
+    "whisperComputeType": "int8",
+    "whisperModelDir": "./models",
+    "defaultLang": "zh",
+    "enableStreamingCorrection": true,
+    "enablePostCorrection": false,
+    "transcriptionStrategy": "local_whisper",
+    "correctionStrategy": "no_op"
+  },
   "models": {
     "openai": {
       "apiKey": "${COLIN_CODE_OPENAI_API_KEY}",
