@@ -230,6 +230,62 @@
         .toggle.active::after {
             transform: translateX(22px);
         }
+
+        .setting-section-label {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .setting-section-label:first-child {
+            border-top: none;
+            padding-top: 0;
+        }
+
+        .radio-btn {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            position: relative;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            flex-shrink: 0;
+        }
+
+        .radio-btn.active {
+            border-color: #34c759;
+        }
+
+        .radio-btn.active::after {
+            content: '';
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #34c759;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .radio-btn.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .ws-status {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .ws-status.connected {
+            color: #34c759;
+        }
     </style>
 </head>
 <body>
@@ -248,13 +304,45 @@
         </div>
         <div class="settings-toggle" id="settingsToggle">&#9881; 设置</div>
         <div class="settings-panel" id="settingsPanel">
+            <div class="setting-section-label">识别模式</div>
+            <div class="setting-row">
+                <span>实时识别</span>
+                <div class="radio-btn active" data-group="recognition" data-value="realtime" id="modeRealtime"></div>
+            </div>
+            <div class="setting-row">
+                <span>实时 + 最终识别</span>
+                <div class="radio-btn" data-group="recognition" data-value="realtime_final" id="modeRealtimeFinal"></div>
+            </div>
+            <div class="setting-row">
+                <span>仅最终识别</span>
+                <div class="radio-btn" data-group="recognition" data-value="final_only" id="modeFinalOnly"></div>
+            </div>
+
+            <div class="setting-section-label">纠错</div>
             <div class="setting-row">
                 <span>实时修正</span>
                 <div class="toggle active" id="streamingToggle"></div>
             </div>
             <div class="setting-row">
                 <span>后处理纠错</span>
-                <div class="toggle" id="postToggle"></div>
+                <div class="toggle active" id="postToggle"></div>
+            </div>
+
+            <div class="setting-section-label">结束操作</div>
+            <div class="setting-row">
+                <span>无操作</span>
+                <div class="radio-btn active" data-group="endaction" data-value="none" id="endNone"></div>
+            </div>
+            <div class="setting-row">
+                <span>自动复制到剪贴板</span>
+                <div class="radio-btn" data-group="endaction" data-value="auto_copy" id="endAutoCopy"></div>
+            </div>
+            <div class="setting-row">
+                <span>发送到 coloop</span>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span class="ws-status" id="wsStatus">○ 未连接</span>
+                    <div class="radio-btn" data-group="endaction" data-value="send_coloop" id="endSendColoop"></div>
+                </div>
             </div>
         </div>
     </div>

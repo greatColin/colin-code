@@ -105,6 +105,7 @@ async function startRecording() {
                     lang: "zh",
                     enable_streaming_correction: streamingToggle.classList.contains("active"),
                     enable_post_correction: postToggle.classList.contains("active"),
+                    recognition_mode: getRecognitionMode(),
                 }
             });
             console.log("[socket] start emitted");
@@ -138,6 +139,26 @@ async function startRecording() {
         socket.on("complete", (data) => {
             console.log("[socket] complete:", data);
             statusText.textContent = "录音完成";
+
+            const text = data.final_text || data.full_text;
+            if (data.final_text) {
+                resultArea.textContent = data.final_text;
+            }
+
+            const endAction = getEndAction();
+            if (endAction === "auto_copy" && text) {
+                navigator.clipboard.writeText(text).then(() => {
+                    statusText.textContent = "已复制到剪贴板";
+                }).catch(() => {
+                    statusText.textContent = "复制失败";
+                });
+            } else if (endAction === "send_coloop" && text) {
+                if (coloopConn.send(text)) {
+                    statusText.textContent = "已发送到 coloop";
+                } else {
+                    statusText.textContent = "发送失败：coloop 未连接";
+                }
+            }
         });
 
         socket.on("error", (data) => {
@@ -238,9 +259,137 @@ settingsToggle.addEventListener("click", () => {
     settingsPanel.classList.toggle("open");
 });
 
+// --- Toggle and Radio setup ---
 function setupToggle(el) {
-    el.addEventListener("click", () => el.classList.toggle("active"));
+    el.addEventListener("click", () => {
+        if (!el.classList.contains("disabled")) {
+            el.classList.toggle("active");
+        }
+    });
+}
+
+function setupRadioGroup(groupName) {
+    const radios = document.querySelectorAll(`.radio-btn[data-group="${groupName}"]`);
+    radios.forEach((radio) => {
+        radio.addEventListener("click", () => {
+            if (radio.classList.contains("disabled")) return;
+            radios.forEach((r) => r.classList.remove("active"));
+            radio.classList.add("active");
+        });
+    });
 }
 
 setupToggle(streamingToggle);
 setupToggle(postToggle);
+setupRadioGroup("recognition");
+setupRadioGroup("endaction");
+
+// --- Recognition mode helpers ---
+function getRecognitionMode() {
+    const active = document.querySelector('.radio-btn[data-group="recognition"].active');
+    return active ? active.dataset.value : "realtime";
+}
+
+function getEndAction() {
+    const active = document.querySelector('.radio-btn[data-group="endaction"].active');
+    return active ? active.dataset.value : "none";
+}
+
+function updateModeUI() {
+    const mode = getRecognitionMode();
+    if (mode === "final_only") {
+        realtimeText.style.display = "none";
+    } else {
+        realtimeText.style.display = "";
+    }
+}
+
+document.querySelectorAll('.radio-btn[data-group="recognition"]').forEach((btn) => {
+    btn.addEventListener("click", () => setTimeout(updateModeUI, 0));
+});
+
+// --- ColoopConnection ---
+class ColoopConnection {
+    constructor() {
+        this.ws = null;
+        this.wsUrl = null;
+        this.connected = false;
+    }
+
+    connect(wsUrl) {
+        this.wsUrl = wsUrl;
+        this._doConnect();
+    }
+
+    _doConnect() {
+        if (this.ws) {
+            this.ws.close();
+        }
+        try {
+            this.ws = new WebSocket(this.wsUrl);
+        } catch (e) {
+            console.warn("[coloop] invalid WS URL:", this.wsUrl);
+            this._updateStatus(false);
+            return;
+        }
+
+        this.ws.onopen = () => {
+            console.log("[coloop] connected to", this.wsUrl);
+            this.connected = true;
+            this._updateStatus(true);
+        };
+
+        this.ws.onclose = () => {
+            console.log("[coloop] disconnected");
+            this.connected = false;
+            this._updateStatus(false);
+            setTimeout(() => this._doConnect(), 3000);
+        };
+
+        this.ws.onerror = (e) => {
+            console.warn("[coloop] WS error", e);
+        };
+
+        this.ws.onmessage = (e) => {
+            console.log("[coloop] message:", e.data);
+        };
+    }
+
+    send(text) {
+        if (this.ws && this.connected) {
+            this.ws.send(JSON.stringify({ action: "chat", message: text }));
+            return true;
+        }
+        return false;
+    }
+
+    _updateStatus(connected) {
+        const statusEl = document.getElementById("wsStatus");
+        const radioEl = document.getElementById("endSendColoop");
+        if (connected) {
+            statusEl.textContent = "● 已连接";
+            statusEl.classList.add("connected");
+            radioEl.classList.remove("disabled");
+        } else {
+            statusEl.textContent = "○ 未连接";
+            statusEl.classList.remove("connected");
+            radioEl.classList.add("disabled");
+            if (getEndAction() === "send_coloop") {
+                document.querySelector('.radio-btn[data-group="endaction"][data-value="none"]').classList.add("active");
+                document.getElementById("endSendColoop").classList.remove("active");
+            }
+        }
+    }
+}
+
+const coloopConn = new ColoopConnection();
+
+// Connect to coloop on page load
+fetch("/api/config")
+    .then((r) => r.json())
+    .then((cfg) => {
+        if (cfg.coloopWsUrl) {
+            coloopConn.connect(cfg.coloopWsUrl);
+        }
+    })
+    .catch(() => console.log("[coloop] no config endpoint, WS disabled"));
