@@ -1,7 +1,14 @@
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
 import httpx
+from core.correction_strategy import CorrectionStrategy
 
 
-class PostCorrector:
+class LLMCorrectionStrategy(CorrectionStrategy):
+    """LLM-based text correction strategy using OpenAI-compatible API"""
+
     PROMPT = """请对以下语音识别结果进行纠错和润色，修正可能的同音字错误、标点缺失，保持原意不变。只输出修正后的文本，不要解释。
 
 原文：{text}"""
@@ -32,3 +39,10 @@ class PostCorrector:
             response.raise_for_status()
             data = response.json()
             return data["choices"][0]["message"]["content"].strip()
+
+    def get_name(self) -> str:
+        return "llm_correction"
+
+
+# Backward compatibility alias
+PostCorrector = LLMCorrectionStrategy
