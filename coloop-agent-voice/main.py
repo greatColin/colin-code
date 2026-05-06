@@ -23,6 +23,18 @@ socket_app = socketio.ASGIApp(sio, app)
 # Static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+
+@app.get("/api/config")
+async def get_config():
+    return {
+        "language": factory.config.get("language"),
+        "recognitionMode": factory.config.get("recognitionMode", "realtime"),
+        "enableStreamingCorrection": factory.config.get("enableStreamingCorrection"),
+        "enablePostCorrection": factory.config.get("enablePostCorrection"),
+        "coloopWsUrl": factory.config.get_coloop_ws_url(),
+    }
+
+
 sessions = {}
 
 # Pre-create transcription strategy (may need lazy loading for heavy models)
@@ -58,18 +70,35 @@ async def disconnect(sid):
 @sio.on("start")
 async def on_start(sid, data):
     transcription = await get_transcription_strategy()
-    correction = factory.create_correction()
+
+    session_config = data.get("config", {})
+    enable_post_correction = session_config.get(
+        "enable_post_correction", factory.config.get("enablePostCorrection")
+    )
+
+    # If post correction disabled by frontend, force no-op
+    if enable_post_correction:
+        correction = factory.create_correction()
+    else:
+        from correction.no_op_corrector import NoOpCorrectionStrategy
+        correction = NoOpCorrectionStrategy()
 
     async def emit(event, payload):
         await sio.emit(event, payload, room=sid)
 
-    session_config = data.get("config", {})
     session = VoiceSession(
         transcription_strategy=transcription,
         correction_strategy=correction,
         emit_callback=emit,
         language=factory.config.get("language"),
-        enable_streaming_correction=factory.config.get("enableStreamingCorrection"),
+        enable_streaming_correction=session_config.get(
+            "enable_streaming_correction",
+            factory.config.get("enableStreamingCorrection"),
+        ),
+        recognition_mode=session_config.get(
+            "recognition_mode",
+            factory.config.get("recognitionMode", "realtime"),
+        ),
         vad_threshold=session_config.get("vad_threshold", 500),
         silence_timeout_ms=session_config.get("silence_timeout_ms", 1000),
         max_segment_ms=session_config.get("max_segment_ms", 15000),
