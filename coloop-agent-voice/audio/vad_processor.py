@@ -13,6 +13,7 @@ class VADProcessor:
         self._buffer = bytearray()
         self._partial = bytearray()
 
+
     def process(self, pcm_bytes: bytes) -> bytes | None:
         # Append new bytes to any leftover partial frame
         self._partial.extend(pcm_bytes)
