@@ -4,11 +4,12 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from config import VoiceConfig
-from engine.whisper_engine import WhisperEngine
-from correction.post_corrector import PostCorrector
+from voice_factory import VoiceFactory
 from session.voice_session import VoiceSession
 
 config = VoiceConfig()
+factory = VoiceFactory(config)
+
 sio = socketio.AsyncServer(
     async_mode="asgi",
     cors_allowed_origins="*",
@@ -22,42 +23,35 @@ socket_app = socketio.ASGIApp(sio, app)
 # Static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Global engine instance (lazy-loaded)
-_engine = None
-_engine_lock = asyncio.Lock()
+# Global strategy instances (lazy-loaded)
+_transcription_strategy = None
+_correction_strategy = None
+_strategy_lock = asyncio.Lock()
 
 
-def _create_engine():
-    return WhisperEngine(
-        config.whisper_model,
-        device=config.whisper_device,
-        compute_type=config.whisper_compute_type,
-    )
-
-
-async def get_engine():
-    global _engine
-    if _engine is None:
-        async with _engine_lock:
-            if _engine is None:
-                print("[engine] loading whisper model, please wait...")
+async def get_transcription_strategy():
+    global _transcription_strategy
+    if _transcription_strategy is None:
+        async with _strategy_lock:
+            if _transcription_strategy is None:
+                print("[strategy] loading transcription strategy, please wait...")
                 loop = asyncio.get_event_loop()
-                _engine = await loop.run_in_executor(None, _create_engine)
-                print("[engine] model loaded")
-    return _engine
+                _transcription_strategy = await loop.run_in_executor(
+                    None, factory.create_transcription_strategy
+                )
+                print(f"[strategy] loaded: {_transcription_strategy.get_name()}")
+    return _transcription_strategy
 
 
-def get_post_corrector():
-    if not config.enable_post_correction:
-        return None
-    model_cfg = config.get_post_correction_config()
-    if model_cfg:
-        return PostCorrector(
-            model_cfg["api_base"],
-            model_cfg["api_key"],
-            model_cfg["model"],
-        )
-    return None
+def get_correction_strategy():
+    global _correction_strategy
+    if _correction_strategy is None:
+        try:
+            _correction_strategy = factory.create_correction_strategy()
+            print(f"[strategy] loaded correction: {_correction_strategy.get_name()}")
+        except Exception as e:
+            print(f"[strategy] correction strategy not available: {e}")
+    return _correction_strategy
 
 
 sessions = {}
@@ -76,16 +70,16 @@ async def disconnect(sid):
 
 @sio.on("start")
 async def on_start(sid, data):
-    engine = await get_engine()
-    corrector = get_post_corrector()
+    transcription = await get_transcription_strategy()
+    correction = get_correction_strategy()
 
     async def emit(event, payload):
         await sio.emit(event, payload, room=sid)
 
     session = VoiceSession(
         config=data.get("config", {}),
-        engine=engine,
-        post_corrector=corrector,
+        transcription_strategy=transcription,
+        correction_strategy=correction,
         emit_callback=emit,
     )
     sessions[sid] = session
@@ -109,9 +103,9 @@ async def on_stop(sid, data=None):
 
 @app.on_event("startup")
 async def startup_event():
-    print("[startup] preloading whisper model...")
-    await get_engine()
-    print("[startup] model ready")
+    print("[startup] preloading transcription strategy...")
+    await get_transcription_strategy()
+    print("[startup] strategy ready")
 
 
 if __name__ == "__main__":
