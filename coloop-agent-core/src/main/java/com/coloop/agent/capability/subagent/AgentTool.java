@@ -27,10 +27,10 @@ public class AgentTool extends BaseTool {
 
     @Override
     public String getDescription() {
-        return "Launch a new agent to handle complex, multi-step tasks. " +
-               "Each agent invocation is stateless unless given a 'name'. " +
-               "Use 'SendMessage' to continue talking to a named agent. " +
-               "If you call 'Agent' with the same 'name', the old instance is replaced.";
+        return "Create a new subagent to handle a task. " +
+               "IMPORTANT: To continue an existing conversation, use the 'SendMessage' tool. " +
+               "Calling 'Agent' again with the same 'name' replaces the subagent and loses its history. " +
+               "Only use 'Agent' when you need a fresh subagent or a different configuration.";
     }
 
     @Override

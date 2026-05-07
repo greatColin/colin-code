@@ -20,8 +20,9 @@ public class SendMessageTool extends BaseTool {
 
     @Override
     public String getDescription() {
-        return "Send a message to a named subagent. " +
-               "Continues the subagent's conversation. " +
+        return "Send a follow-up message to an existing named subagent. " +
+               "This preserves conversation history and context. " +
+               "ALWAYS use this instead of re-creating the subagent with 'Agent' when the task has continuity. " +
                "The subagent must have been created via the 'Agent' tool first.";
     }
 
