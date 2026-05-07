@@ -1,7 +1,6 @@
 package com.coloop.agent.server.hook;
 
 import com.coloop.agent.capability.task.TaskService;
-import com.coloop.agent.core.agent.AgentHook;
 import com.coloop.agent.core.agent.AgentLoop;
 import com.coloop.agent.core.context.ConversationState;
 import com.coloop.agent.core.context.PlanTask;
@@ -10,7 +9,6 @@ import com.coloop.agent.core.task.Task;
 import com.coloop.agent.core.task.TaskStatus;
 import com.coloop.agent.server.dto.WebSocketMessage;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
@@ -23,17 +21,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * 将 AgentLoop 生命周期事件转为 JSON 通过 WebSocket 推送到前端。
  */
-public class WebSocketLoggingHook implements AgentHook {
+public class WebSocketLoggingHook extends AbstractWebSocketLoggingHook {
 
-    private final WebSocketSession session;
-    private final ObjectMapper objectMapper;
     private final AtomicInteger loopCount;
-    private AgentLoop agentLoop;
     private TaskService taskService;
 
     public WebSocketLoggingHook(WebSocketSession session, AgentLoop agentLoop) {
-        this.session = session;
-        this.objectMapper = new ObjectMapper();
+        super(session);
         this.loopCount = new AtomicInteger(0);
         this.agentLoop = agentLoop;
     }
@@ -42,12 +36,13 @@ public class WebSocketLoggingHook implements AgentHook {
         this(session, null);
     }
 
-    public void setAgentLoop(AgentLoop agentLoop) {
-        this.agentLoop = agentLoop;
-    }
-
     public void setTaskService(TaskService taskService) {
         this.taskService = taskService;
+    }
+
+    @Override
+    protected String getAgentName() {
+        return null;
     }
 
     @Override
@@ -120,18 +115,6 @@ public class WebSocketLoggingHook implements AgentHook {
     @Override
     public void onStreamChunk(String chunk) {
         send(WebSocketMessage.streamChunk(chunk));
-    }
-
-    private void send(WebSocketMessage msg) {
-        if (!session.isOpen()) {
-            return;
-        }
-        try {
-            String json = objectMapper.writeValueAsString(msg);
-            session.sendMessage(new TextMessage(json));
-        } catch (Exception e) {
-            System.err.println("WebSocket send failed: " + e.getMessage());
-        }
     }
 
     /** 推进计划任务进度：当前 in_progress 标记为 completed，下一个 pending 标记为 in_progress。 */
