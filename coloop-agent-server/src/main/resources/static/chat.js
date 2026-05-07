@@ -65,7 +65,9 @@
     const statusEl = document.getElementById('connection-status');
     const commandSuggestionsEl = document.getElementById('command-suggestions');
     const agentSidebarEl = document.getElementById('agent-sidebar');
-    const agentListEl = document.getElementById('agent-list');
+    const currentSessionListEl = document.getElementById('current-session-list');
+    const historySectionHeader = document.getElementById('history-section-header');
+    const historyListEl = document.getElementById('history-list');
     const agentSidebarToggleEl = document.getElementById('agent-sidebar-toggle');
 
     const wsUrl = 'ws://' + window.location.host + '/ws/agent';
@@ -89,6 +91,9 @@
                 contextUsage: null,
                 meta: meta || { name: name }
             });
+            if (name !== 'main' && currentSessionListEl) {
+                addAgentToCurrentSession(name, meta);
+            }
         }
     }
     ensureAgent('main', { name: 'main' });
@@ -136,7 +141,7 @@
     }
 
     function updateSidebarActive(name) {
-        var items = agentListEl.querySelectorAll('.agent-item');
+        var items = currentSessionListEl.querySelectorAll('.agent-item');
         items.forEach(function(item) {
             if (item.dataset.agent === name) {
                 item.classList.add('active');
@@ -244,6 +249,12 @@
             case 'new_session':
                 renderNewSession();
                 break;
+            case 'history_list':
+                renderHistoryList(msg.payload && msg.payload.sessions);
+                return;
+            case 'session_loaded':
+                renderSystem('Loaded session: ' + (msg.payload.title || msg.payload.sessionId));
+                return;
             case 'commands':
                 availableCommands = (msg.payload && msg.payload.commands) || [];
                 break;
@@ -636,23 +647,27 @@
     }
 
     function addAgentToSidebar(payload) {
-        if (!agentListEl) return;
-        var existing = agentListEl.querySelector('[data-agent="' + payload.name + '"]');
-        if (existing) existing.remove();
+        addAgentToCurrentSession(payload.name, { name: payload.name, description: payload.description });
+    }
+
+    function addAgentToCurrentSession(name, meta) {
+        if (!currentSessionListEl) return;
+        var existing = currentSessionListEl.querySelector('[data-agent="' + name + '"]');
+        if (existing) return;
 
         var item = document.createElement('div');
         item.className = 'agent-item';
-        item.dataset.agent = payload.name;
-        item.innerHTML = '<span class="agent-icon">🤖</span><span class="agent-name">' + escapeHtml(payload.name) + '</span>';
+        item.dataset.agent = name;
+        item.innerHTML = '<span class="agent-icon">🤖</span><span class="agent-name">' + escapeHtml(name) + '</span>';
         item.addEventListener('click', function() {
-            switchToAgent(payload.name);
+            switchToAgent(name);
         });
-        agentListEl.appendChild(item);
+        currentSessionListEl.appendChild(item);
     }
 
     function removeAgentFromSidebar(name) {
-        if (!agentListEl) return;
-        var item = agentListEl.querySelector('[data-agent="' + name + '"]');
+        if (!currentSessionListEl) return;
+        var item = currentSessionListEl.querySelector('[data-agent="' + name + '"]');
         if (!item) return;
         item.classList.add('removing');
         setTimeout(function() {
@@ -690,11 +705,85 @@
     }
 
     // Bind click to existing agent items (e.g. 'main')
-    if (agentListEl) {
-        agentListEl.querySelectorAll('.agent-item').forEach(function(item) {
+    if (currentSessionListEl) {
+        currentSessionListEl.querySelectorAll('.agent-item').forEach(function(item) {
             item.addEventListener('click', function() {
                 switchToAgent(item.dataset.agent);
             });
+        });
+    }
+
+    function renderHistoryList(sessions) {
+        if (!historyListEl) return;
+        historyListEl.innerHTML = '';
+        if (!sessions || !sessions.length) {
+            var empty = document.createElement('div');
+            empty.className = 'history-item';
+            empty.style.opacity = '0.5';
+            empty.textContent = '无历史记录';
+            historyListEl.appendChild(empty);
+            return;
+        }
+        sessions.forEach(function(s) {
+            var item = document.createElement('div');
+            item.className = 'history-item';
+            item.dataset.sessionId = s.id;
+            item.textContent = s.title || s.id;
+            item.title = new Date(s.createdAt).toLocaleString();
+            item.addEventListener('click', function() {
+                loadSession(s.id);
+            });
+            historyListEl.appendChild(item);
+        });
+    }
+
+    function loadSession(sessionId) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        agentState.clear();
+        chatContainer.innerHTML = '';
+        ensureAgent('main', { name: 'main' });
+        currentAgent = 'main';
+        updateSidebarActive('main');
+        if (currentSessionListEl) {
+            var items = currentSessionListEl.querySelectorAll('.agent-item');
+            items.forEach(function(item) {
+                if (item.dataset.agent !== 'main') item.remove();
+            });
+        }
+        ws.send(JSON.stringify({ action: 'load_session', sessionId: sessionId }));
+    }
+
+    // History section toggle
+    if (historySectionHeader) {
+        historySectionHeader.addEventListener('click', function() {
+            var section = historySectionHeader.closest('.sidebar-section');
+            var body = document.getElementById('history-list');
+            if (section.classList.contains('expanded')) {
+                section.classList.remove('expanded');
+                body.classList.add('collapsed');
+            } else {
+                section.classList.add('expanded');
+                body.classList.remove('collapsed');
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ action: 'list_history' }));
+                }
+            }
+        });
+    }
+
+    // Current session section toggle
+    var currentSectionHeader = document.querySelector('[data-section="current"] .sidebar-section-header');
+    if (currentSectionHeader) {
+        currentSectionHeader.addEventListener('click', function() {
+            var section = currentSectionHeader.closest('.sidebar-section');
+            var body = section.querySelector('.sidebar-section-body');
+            if (section.classList.contains('expanded')) {
+                section.classList.remove('expanded');
+                body.classList.add('collapsed');
+            } else {
+                section.classList.add('expanded');
+                body.classList.remove('collapsed');
+            }
         });
     }
 
