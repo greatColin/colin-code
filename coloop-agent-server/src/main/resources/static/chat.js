@@ -64,9 +64,9 @@
     const sendBtn = document.getElementById('send-btn');
     const statusEl = document.getElementById('connection-status');
     const commandSuggestionsEl = document.getElementById('command-suggestions');
-    const taskListEl = document.getElementById('task-list');
-    const taskSidebarEl = document.getElementById('task-sidebar');
-    const taskSidebarToggleEl = document.getElementById('task-sidebar-toggle');
+    const agentSidebarEl = document.getElementById('agent-sidebar');
+    const agentListEl = document.getElementById('agent-list');
+    const agentSidebarToggleEl = document.getElementById('agent-sidebar-toggle');
 
     const wsUrl = 'ws://' + window.location.host + '/ws/agent';
     let ws = null;
@@ -74,13 +74,72 @@
     let availableCommands = [];
     let selectedSuggestionIndex = -1;
 
-    // --- Streaming state ---
-    let currentAssistantEl = null;
-    let streamBuffer = '';
-    let lastRenderTime = 0;
-    const STREAM_RENDER_INTERVAL = 100;   // ms
-    const STREAM_RENDER_MIN_CHARS = 50;   // chars
-    let streamRenderTimer = null;
+    // --- Per-agent state ---
+    const agentState = new Map();
+    function ensureAgent(name, meta) {
+        if (!agentState.has(name)) {
+            agentState.set(name, {
+                fragment: document.createDocumentFragment(),
+                currentAssistantEl: null,
+                streamBuffer: '',
+                lastRenderTime: 0,
+                streamRenderTimer: null,
+                meta: meta || { name: name }
+            });
+        }
+    }
+    ensureAgent('main', { name: 'main' });
+    let currentAgent = 'main';
+
+    function appendToAgent(agentName, el) {
+        var st = agentState.get(agentName);
+        if (!st) return;
+        if (agentName === currentAgent) {
+            chatContainer.appendChild(el);
+        } else {
+            st.fragment.appendChild(el);
+        }
+    }
+
+    function insertBeforeAssistant(agentName, el) {
+        var st = agentState.get(agentName);
+        if (!st) return;
+        if (agentName === currentAgent && st.currentAssistantEl && st.currentAssistantEl.parentNode === chatContainer) {
+            chatContainer.insertBefore(el, st.currentAssistantEl);
+        } else {
+            appendToAgent(agentName, el);
+        }
+    }
+
+    function switchToAgent(name) {
+        if (name === currentAgent) return;
+        var curSt = agentState.get(currentAgent);
+        if (curSt) {
+            while (chatContainer.firstChild) {
+                curSt.fragment.appendChild(chatContainer.firstChild);
+            }
+        }
+        var targetSt = agentState.get(name);
+        if (targetSt) {
+            while (targetSt.fragment.firstChild) {
+                chatContainer.appendChild(targetSt.fragment.firstChild);
+            }
+        }
+        currentAgent = name;
+        updateSidebarActive(name);
+        scrollToBottom();
+    }
+
+    function updateSidebarActive(name) {
+        var items = agentListEl.querySelectorAll('.agent-item');
+        items.forEach(function(item) {
+            if (item.dataset.agent === name) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+    }
 
     function connect() {
         updateStatus('connecting', '连接中...');
@@ -126,27 +185,41 @@
     }
 
     function handleMessage(msg) {
+        var agent = msg.agentName || 'main';
+        ensureAgent(agent);
+
         switch (msg.type) {
+            case 'subagent_created':
+                addAgentToSidebar(msg.payload);
+                return;
+            case 'subagent_cleared':
+                removeAgentFromSidebar(msg.payload.name);
+                if (currentAgent === msg.payload.name) {
+                    switchToAgent('main');
+                    renderSystem('Subagent \'' + msg.payload.name + '\' was cleared.');
+                }
+                agentState.delete(msg.payload.name);
+                return;
             case 'user':
-                renderUser(msg.payload.content);
+                renderUser(agent, msg.payload.content);
                 break;
             case 'loop_start':
-                renderLoopStart(msg.payload.attempt);
+                renderLoopStart(agent, msg.payload.attempt);
                 break;
             case 'thinking':
-                renderThinking(msg.payload);
+                renderThinking(agent, msg.payload);
                 break;
             case 'tool_call':
-                renderToolCall(msg.payload);
+                renderToolCall(agent, msg.payload);
                 break;
             case 'tool_result':
-                renderToolResult(msg.payload);
+                renderToolResult(agent, msg.payload);
                 break;
             case 'stream_chunk':
-                appendStreamChunk(msg.payload.content);
+                appendStreamChunk(agent, msg.payload.content);
                 break;
             case 'assistant':
-                finalizeAssistant(msg.payload.content);
+                finalizeAssistant(agent, msg.payload.content);
                 break;
             case 'system':
                 renderSystem(msg.payload.message);
@@ -162,215 +235,187 @@
                 break;
             case 'commands':
                 availableCommands = (msg.payload && msg.payload.commands) || [];
-                console.log('[Commands] Loaded', availableCommands.length, 'commands:', availableCommands.map(function(c) { return c.name; }));
                 break;
             case 'task_list':
-                var taskCount = (msg.payload && msg.payload.tasks) ? msg.payload.tasks.length : 0;
-                console.log('[WebSocket] task_list received, count=' + taskCount, msg.payload && msg.payload.tasks);
-                renderTaskList(msg.payload && msg.payload.tasks);
-                break;
             case 'task_update':
-                console.log('[WebSocket] task_update received:', msg.payload);
-                updateTaskStatus(msg.payload);
+                // No-op: task sidebar removed, keep as defensive stub
                 break;
         }
         scrollToBottom();
-    }
-
-    function appendElement(el) {
-        chatContainer.appendChild(el);
-    }
-
-    function insertBeforeAssistant(el) {
-        if (currentAssistantEl && currentAssistantEl.parentNode === chatContainer) {
-            chatContainer.insertBefore(el, currentAssistantEl);
-        } else {
-            chatContainer.appendChild(el);
-        }
     }
 
     function scrollToBottom() {
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
-    function renderUser(content) {
-        const el = document.createElement('div');
+    function renderUser(agentName, content) {
+        var el = document.createElement('div');
         el.className = 'message user';
         el.textContent = content;
-        appendElement(el);
+        appendToAgent(agentName, el);
     }
 
-    function appendStreamChunk(chunk) {
+    function appendStreamChunk(agentName, chunk) {
         if (!chunk) return;
+        var st = agentState.get(agentName);
+        if (!st) return;
 
-        if (!currentAssistantEl) {
-            currentAssistantEl = document.createElement('div');
-            currentAssistantEl.className = 'message assistant';
-            currentAssistantEl.innerHTML = '<span class="stream-cursor"></span>';
-            appendElement(currentAssistantEl);
+        if (!st.currentAssistantEl) {
+            st.currentAssistantEl = document.createElement('div');
+            st.currentAssistantEl.className = 'message assistant';
+            st.currentAssistantEl.innerHTML = '<span class="stream-cursor"></span>';
+            appendToAgent(agentName, st.currentAssistantEl);
         }
 
-        streamBuffer += chunk;
+        st.streamBuffer += chunk;
 
         var now = Date.now();
-        if (now - lastRenderTime > STREAM_RENDER_INTERVAL || streamBuffer.length > STREAM_RENDER_MIN_CHARS) {
-            renderStreamBuffer();
-        } else if (!streamRenderTimer) {
-            streamRenderTimer = setTimeout(function() {
-                renderStreamBuffer();
+        if (now - st.lastRenderTime > STREAM_RENDER_INTERVAL || st.streamBuffer.length > STREAM_RENDER_MIN_CHARS) {
+            renderStreamBuffer(agentName);
+        } else if (!st.streamRenderTimer) {
+            var capturedName = agentName;
+            st.streamRenderTimer = setTimeout(function() {
+                renderStreamBuffer(capturedName);
             }, STREAM_RENDER_INTERVAL);
         }
 
         scrollToBottom();
     }
 
-    function renderStreamBuffer() {
-        if (!currentAssistantEl) return;
+    function renderStreamBuffer(agentName) {
+        var st = agentState.get(agentName);
+        if (!st || !st.currentAssistantEl) return;
 
-        lastRenderTime = Date.now();
-        streamRenderTimer = null;
+        st.lastRenderTime = Date.now();
+        st.streamRenderTimer = null;
 
-        var html = renderMarkdown(streamBuffer);
-        currentAssistantEl.innerHTML = html + '<span class="stream-cursor"></span>';
-        highlightCodeBlocks(currentAssistantEl);
+        var html = renderMarkdown(st.streamBuffer);
+        st.currentAssistantEl.innerHTML = html + '<span class="stream-cursor"></span>';
+        highlightCodeBlocks(st.currentAssistantEl);
     }
 
-    function finalizeAssistant(fullContent) {
-        // Clear any pending render timer
-        if (streamRenderTimer) {
-            clearTimeout(streamRenderTimer);
-            streamRenderTimer = null;
+    function finalizeAssistant(agentName, fullContent) {
+        var st = agentState.get(agentName);
+        if (!st) return;
+
+        if (st.streamRenderTimer) {
+            clearTimeout(st.streamRenderTimer);
+            st.streamRenderTimer = null;
         }
 
-        // Extract think blocks from the full content
         var extracted = extractThinkBlocks(fullContent || '');
-
-        // Render think content as a thinking card (if any)
         if (extracted.thinkContent) {
-            renderCardBeforeAssistant('thinking', '💭 Thinking', extracted.thinkContent);
+            renderCardBeforeAssistant(agentName, 'thinking', 'Thinking', extracted.thinkContent);
         }
 
-        if (currentAssistantEl) {
-            // Update with final rendered content (no cursor)
+        if (st.currentAssistantEl) {
             var html = renderMarkdown(extracted.remainingContent);
-            currentAssistantEl.innerHTML = html;
-            highlightCodeBlocks(currentAssistantEl);
-            currentAssistantEl = null;
-            streamBuffer = '';
+            st.currentAssistantEl.innerHTML = html;
+            highlightCodeBlocks(st.currentAssistantEl);
+            st.currentAssistantEl = null;
+            st.streamBuffer = '';
         } else {
-            // Fallback: no stream chunks received, render as before
             var el = document.createElement('div');
             el.className = 'message assistant';
             el.innerHTML = renderMarkdown(extracted.remainingContent);
-            appendElement(el);
+            appendToAgent(agentName, el);
             highlightCodeBlocks(el);
         }
     }
 
     function renderNewSession() {
         if (chatContainer.children.length === 0) return;
-        const el = document.createElement('div');
+        var el = document.createElement('div');
         el.className = 'message loop-start';
         el.textContent = '────────── New Session ──────────';
-        appendElement(el);
+        appendToAgent('main', el);
     }
 
-    function renderLoopStart(attempt) {
-        // 新循环开始，重置当前 assistant 元素
-        // 防止上一轮未完成的流式内容被追加到错误的循环中
-        if (currentAssistantEl) {
-            if (streamBuffer) {
-                renderStreamBuffer();
+    function renderLoopStart(agentName, attempt) {
+        var st = agentState.get(agentName);
+        if (st) {
+            if (st.currentAssistantEl) {
+                if (st.streamBuffer) renderStreamBuffer(agentName);
+                var cursor = st.currentAssistantEl.querySelector('.stream-cursor');
+                if (cursor) cursor.remove();
+                st.currentAssistantEl = null;
+                st.streamBuffer = '';
             }
-            var cursor = currentAssistantEl.querySelector('.stream-cursor');
-            if (cursor) cursor.remove();
-            currentAssistantEl = null;
-            streamBuffer = '';
+            if (st.streamRenderTimer) {
+                clearTimeout(st.streamRenderTimer);
+                st.streamRenderTimer = null;
+            }
         }
-        if (streamRenderTimer) {
-            clearTimeout(streamRenderTimer);
-            streamRenderTimer = null;
-        }
-
-        const el = document.createElement('div');
+        var el = document.createElement('div');
         el.className = 'message loop-start';
         el.textContent = '▶ Attempt ' + attempt + '...';
-        appendElement(el);
+        appendToAgent(agentName, el);
     }
 
     function renderSystem(message) {
-        const el = document.createElement('div');
+        var el = document.createElement('div');
         el.className = 'message system';
         el.textContent = message;
-        appendElement(el);
+        chatContainer.appendChild(el);
     }
 
     function renderError(message) {
-        const el = document.createElement('div');
+        var el = document.createElement('div');
         el.className = 'message error';
         el.textContent = '⚠ ' + message;
-        appendElement(el);
+        chatContainer.appendChild(el);
     }
 
-    function renderThinking(payload) {
-        let content = '';
-        if (payload.reasoning) {
-            content += '[REASONING]\n' + payload.reasoning + '\n\n';
-        }
-        if (payload.content) {
-            content += '[THINK]\n' + payload.content;
-        }
-        renderCardBeforeAssistant('thinking', '💭 Thinking', content);
+    function renderThinking(agentName, payload) {
+        var content = '';
+        if (payload.reasoning) content += '[REASONING]\n' + payload.reasoning + '\n\n';
+        if (payload.content) content += '[THINK]\n' + payload.content;
+        renderCardBeforeAssistant(agentName, 'thinking', 'Thinking', content);
     }
 
-    function renderToolCall(payload) {
-        let content = 'Name: ' + payload.name + '\n';
-        if (payload.fullArgs) {
-            content += 'Args:\n' + payload.fullArgs;
-        } else if (payload.args) {
-            content += 'Args:\n' + payload.args;
-        }
-        renderCardBeforeAssistant('tool-call', '🔧 ' + payload.name, content);
+    function renderToolCall(agentName, payload) {
+        var content = 'Name: ' + payload.name + '\n';
+        if (payload.fullArgs) content += 'Args:\n' + payload.fullArgs;
+        else if (payload.args) content += 'Args:\n' + payload.args;
+        renderCardBeforeAssistant(agentName, 'tool-call', payload.name, content);
     }
 
-    function renderToolResult(payload) {
-        renderCardBeforeAssistant('tool-result', '✅ Result: ' + payload.name, payload.result || '');
+    function renderToolResult(agentName, payload) {
+        renderCardBeforeAssistant(agentName, 'tool-result', 'Result: ' + payload.name, payload.result || '');
     }
 
-    function renderCardBeforeAssistant(type, title, bodyContent) {
-        const card = document.createElement('div');
+    function renderCardBeforeAssistant(agentName, type, title, bodyContent) {
+        var card = document.createElement('div');
         card.className = 'card ' + type;
 
-        const header = document.createElement('div');
+        var header = document.createElement('div');
         header.className = 'card-header';
 
-        const titleEl = document.createElement('span');
+        var titleEl = document.createElement('span');
         titleEl.className = 'card-title';
         titleEl.textContent = title;
 
-        const toggle = document.createElement('span');
+        var toggle = document.createElement('span');
         toggle.className = 'card-toggle';
         toggle.textContent = '▼';
 
         header.appendChild(titleEl);
         header.appendChild(toggle);
 
-        // Preview: first line or first 80 chars
-        const preview = document.createElement('div');
+        var preview = document.createElement('div');
         preview.className = 'card-preview';
-        const previewText = bodyContent ? bodyContent.split('\n')[0].substring(0, 80) : '';
+        var previewText = bodyContent ? bodyContent.split('\n')[0].substring(0, 80) : '';
         preview.textContent = previewText + (bodyContent && bodyContent.length > 80 ? '...' : '');
 
-        const body = document.createElement('div');
+        var body = document.createElement('div');
         body.className = 'card-body';
         body.textContent = bodyContent;
 
-        // Default collapsed: show preview, hide body
         body.classList.add('collapsed');
         toggle.textContent = '▶';
 
         header.addEventListener('click', function() {
-            const isCollapsed = body.classList.contains('collapsed');
+            var isCollapsed = body.classList.contains('collapsed');
             if (isCollapsed) {
                 body.classList.remove('collapsed');
                 preview.classList.add('collapsed');
@@ -385,7 +430,7 @@
         card.appendChild(header);
         card.appendChild(preview);
         card.appendChild(body);
-        insertBeforeAssistant(card);
+        insertBeforeAssistant(agentName, card);
     }
 
     function updateContextBar(payload) {
@@ -569,76 +614,44 @@
         messageInput.focus();
     }
 
-    // --- Task sidebar ---
-    function renderTaskList(tasks) {
-        console.log('[TaskSidebar] renderTaskList called, taskListEl=' + (taskListEl ? 'found' : 'missing') + ', tasks=' + (tasks ? tasks.length : 'null'));
-        if (!taskListEl) {
-            console.error('[TaskSidebar] taskListEl not found!');
-            return;
-        }
-        taskListEl.innerHTML = '';
+    function addAgentToSidebar(payload) {
+        if (!agentListEl) return;
+        var existing = agentListEl.querySelector('[data-agent="' + payload.name + '"]');
+        if (existing) existing.remove();
 
-        if (!tasks || tasks.length === 0) {
-            taskListEl.innerHTML = '<div class="task-empty">暂无计划任务</div>';
-            return;
-        }
-
-        tasks.forEach(function(task) {
-            const item = createTaskElement(task);
-            taskListEl.appendChild(item);
+        var item = document.createElement('div');
+        item.className = 'agent-item';
+        item.dataset.agent = payload.name;
+        item.innerHTML = '<span class="agent-icon">🤖</span><span class="agent-name">' + escapeHtml(payload.name) + '</span>';
+        item.addEventListener('click', function() {
+            switchToAgent(payload.name);
         });
+        agentListEl.appendChild(item);
     }
 
-    function createTaskElement(task) {
-        const el = document.createElement('div');
-        el.className = 'task-item status-' + (task.status || 'pending');
-        el.dataset.taskId = task.id;
-
-        const icon = document.createElement('span');
-        icon.className = 'task-icon';
-        icon.textContent = getTaskIcon(task.status || 'pending');
-
-        const text = document.createElement('span');
-        text.className = 'task-text';
-        text.textContent = task.description || '';
-
-        el.appendChild(icon);
-        el.appendChild(text);
-        return el;
+    function removeAgentFromSidebar(name) {
+        if (!agentListEl) return;
+        var item = agentListEl.querySelector('[data-agent="' + name + '"]');
+        if (!item) return;
+        item.classList.add('removing');
+        setTimeout(function() {
+            if (item.parentNode) item.parentNode.removeChild(item);
+        }, 300);
     }
 
-    function getTaskIcon(status) {
-        switch (status) {
-            case 'pending': return '⏳';
-            case 'in_progress': return '▶';
-            case 'completed': return '✅';
-            case 'failed': return '❌';
-            default: return '⏳';
-        }
+    function escapeHtml(str) {
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    function updateTaskStatus(payload) {
-        if (!taskListEl || !payload) return;
-        const items = taskListEl.querySelectorAll('.task-item');
-        for (var i = 0; i < items.length; i++) {
-            if (String(items[i].dataset.taskId) === String(payload.id)) {
-                items[i].className = 'task-item status-' + (payload.status || 'pending');
-                const icon = items[i].querySelector('.task-icon');
-                if (icon) icon.textContent = getTaskIcon(payload.status || 'pending');
-                break;
-            }
-        }
-    }
-
-    if (taskSidebarToggleEl && taskSidebarEl) {
-        taskSidebarToggleEl.addEventListener('click', function() {
-            const isCollapsed = taskSidebarEl.classList.contains('collapsed');
+    if (agentSidebarToggleEl && agentSidebarEl) {
+        agentSidebarToggleEl.addEventListener('click', function() {
+            var isCollapsed = agentSidebarEl.classList.contains('collapsed');
             if (isCollapsed) {
-                taskSidebarEl.classList.remove('collapsed');
-                taskSidebarToggleEl.textContent = '◀';
+                agentSidebarEl.classList.remove('collapsed');
+                agentSidebarToggleEl.textContent = '◀';
             } else {
-                taskSidebarEl.classList.add('collapsed');
-                taskSidebarToggleEl.textContent = '▶';
+                agentSidebarEl.classList.add('collapsed');
+                agentSidebarToggleEl.textContent = '▶';
             }
         });
     }
