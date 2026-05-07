@@ -233,6 +233,7 @@
                 renderError(msg.payload.message);
                 break;
             case 'context_usage':
+                console.log('[WS] context_usage for agent:', agent, 'payload:', msg.payload);
                 var stCtx = agentState.get(agent);
                 if (stCtx) {
                     stCtx.contextUsage = msg.payload;
