@@ -44,6 +44,13 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
                 if (!userMessage.isEmpty()) {
                     agentService.startChat(userMessage, session);
                 }
+            } else if ("list_history".equals(action)) {
+                agentService.listHistory(session);
+            } else if ("load_session".equals(action)) {
+                String sessionId = jsonNode.path("sessionId").asText("");
+                if (!sessionId.isEmpty()) {
+                    agentService.loadSession(sessionId, session);
+                }
             }
         } catch (Exception e) {
             System.err.println("[WebSocket] Error handling message: " + e.getMessage());
