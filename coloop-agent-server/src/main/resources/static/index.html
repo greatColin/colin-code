@@ -298,6 +298,411 @@
             overflow: hidden;
             min-width: 0;
         }
+
+        /* === Mode Switcher === */
+        .mode-switcher {
+            display: flex;
+            gap: 2px;
+            background: var(--sidebar-bg, #f0f0f0);
+            border-radius: 6px;
+            padding: 2px;
+        }
+        .mode-btn {
+            padding: 4px 12px;
+            border: none;
+            background: transparent;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            color: var(--sidebar-item-color, #555);
+        }
+        .mode-btn.active {
+            background: var(--group-bg, #fff);
+            color: var(--sidebar-item-active-color, #111);
+            font-weight: 500;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        /* === Combined Mode === */
+        .single-mode {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+        }
+        .combined-mode {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+        }
+        .combined-body {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Topology Panel */
+        .topology-panel {
+            width: 40%;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--sidebar-border, #e5e7eb);
+            background: var(--topo-bg, #f5f5f5);
+            transition: width 0.3s ease, min-width 0.3s ease;
+            position: relative;
+        }
+        .topology-panel.collapsed {
+            width: 40px;
+            min-width: 40px;
+        }
+        .topology-panel.collapsed .topology-header select,
+        .topology-panel.collapsed .topology-canvas {
+            display: none;
+        }
+        .topology-header {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--sidebar-border, #e5e7eb);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--sidebar-bg, #f8f7fa);
+            flex-shrink: 0;
+        }
+        .topology-header select {
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid var(--sidebar-border, #e5e7eb);
+            font-size: 13px;
+            background: var(--group-bg, #fff);
+        }
+        .topology-toggle {
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px;
+            border-radius: 4px;
+            user-select: none;
+            color: var(--sidebar-toggle-color, #666);
+        }
+        .topology-toggle:hover {
+            background: var(--sidebar-toggle-hover-bg, #e5e7eb);
+        }
+        .topology-canvas {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+        .topology-svg {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* Group Chat Area */
+        .group-chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            background: var(--group-bg, #fff);
+            position: relative;
+        }
+        .group-chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            padding-right: 196px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .group-chat-members {
+            width: 180px;
+            border-left: 1px solid var(--sidebar-border, #e5e7eb);
+            background: var(--group-sidebar-bg, #f8f7fa);
+            padding: 12px;
+            overflow-y: auto;
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 56px;
+            z-index: 2;
+        }
+        .group-members-header {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--sidebar-section-header-color, #666);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .group-member {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 0;
+            font-size: 13px;
+            color: var(--sidebar-item-color, #333);
+        }
+        .group-member-avatar {
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        .group-member-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .group-member-role {
+            font-size: 10px;
+            color: var(--sidebar-section-header-color, #999);
+            background: var(--sidebar-icon-bg, #eee);
+            padding: 1px 5px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+        .group-member-status {
+            font-size: 11px;
+            color: var(--sidebar-section-header-color, #999);
+            flex-shrink: 0;
+        }
+
+        /* Group Messages */
+        .group-msg {
+            display: flex;
+            gap: 10px;
+            max-width: 80%;
+            animation: msg-in 0.2s ease;
+        }
+        @keyframes msg-in {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .group-msg-self {
+            align-self: flex-end;
+            flex-direction: column;
+            align-items: flex-end;
+            margin-left: auto;
+        }
+        .group-msg-other {
+            align-self: flex-start;
+        }
+        .group-msg-avatar {
+            font-size: 28px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            image-rendering: pixelated;
+        }
+        .group-msg-name {
+            font-size: 12px;
+            color: var(--sidebar-section-header-color, #666);
+            margin-bottom: 2px;
+        }
+        .group-msg-label {
+            font-size: 11px;
+            color: var(--sidebar-section-header-color, #999);
+            margin-bottom: 2px;
+        }
+        .group-msg-bubble {
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+        .group-msg-self .group-msg-bubble {
+            background: var(--group-bubble-self-bg, #2563eb);
+            color: var(--group-bubble-self-color, #fff);
+            border-radius: 12px 12px 4px 12px;
+        }
+        .group-msg-other .group-msg-bubble {
+            background: var(--group-bubble-other-bg, #f3f4f6);
+            color: var(--group-bubble-other-color, #111);
+            border-radius: 12px 12px 12px 4px;
+        }
+        .group-system-msg {
+            align-self: center;
+            font-size: 12px;
+            color: var(--group-system-color, #9ca3af);
+            padding: 4px 12px;
+        }
+
+        /* Group Input */
+        .group-chat-input {
+            display: flex;
+            gap: 8px;
+            padding: 10px 16px;
+            border-top: 1px solid var(--sidebar-border, #e5e7eb);
+            background: var(--sidebar-bg, #f8f7fa);
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .group-chat-input label {
+            font-size: 13px;
+            color: var(--sidebar-item-color, #555);
+            white-space: nowrap;
+        }
+        .group-chat-input select {
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--sidebar-border, #e5e7eb);
+            font-size: 13px;
+            background: var(--group-bg, #fff);
+            color: var(--sidebar-item-color, #333);
+        }
+        .group-chat-input input {
+            flex: 1;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--sidebar-border, #e5e7eb);
+            font-size: 14px;
+            outline: none;
+            background: var(--group-bg, #fff);
+            color: var(--sidebar-title-color, #111);
+        }
+        .group-chat-input input:focus {
+            border-color: var(--sidebar-item-active-border, #2563eb);
+        }
+        .group-chat-input input::placeholder {
+            color: var(--sidebar-section-header-color, #999);
+        }
+        .group-chat-input button {
+            padding: 8px 18px;
+            background: var(--sidebar-item-active-border, #2563eb);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .group-chat-input button:hover {
+            opacity: 0.9;
+        }
+
+        /* Topology Agent Node */
+        .agent-node {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            transition: left 0.4s ease, top 0.4s ease;
+            z-index: 2;
+            cursor: default;
+        }
+        .agent-node-avatar {
+            width: 64px;
+            height: 64px;
+            font-size: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--sidebar-icon-bg, #e5e7eb);
+            border-radius: 12px;
+            border: 2px solid var(--topo-node-border, #e5e7eb);
+            image-rendering: pixelated;
+            transition: all 0.3s ease;
+        }
+        .agent-node-main .agent-node-avatar {
+            border-color: var(--sidebar-item-active-border, #2563eb);
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+        }
+        .agent-node-working .agent-node-avatar {
+            animation: node-float 2s ease-in-out infinite;
+        }
+        @keyframes node-float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+        .agent-node-idle .agent-node-avatar {
+            opacity: 0.6;
+            filter: grayscale(0.5);
+        }
+        .agent-node-status {
+            font-size: 11px;
+            padding: 3px 10px;
+            border-radius: 10px;
+            background: var(--sidebar-bg, #f0f0f0);
+            color: var(--sidebar-item-active-border, #2563eb);
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .agent-node-bubble {
+            max-width: 200px;
+            padding: 8px 12px;
+            background: var(--topo-bubble-bg, #fff);
+            border: 1px solid var(--topo-node-border, #e5e7eb);
+            border-radius: 10px;
+            font-size: 12px;
+            line-height: 1.4;
+            word-break: break-word;
+            position: relative;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            color: var(--sidebar-item-color, #333);
+        }
+        .agent-node-bubble::before {
+            content: '';
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-bottom-color: var(--topo-node-border, #e5e7eb);
+        }
+        .agent-node-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-bottom-color: var(--topo-bubble-bg, #fff);
+            margin-bottom: -1px;
+        }
+        .agent-node-actions {
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        .agent-node:hover .agent-node-actions {
+            opacity: 1;
+        }
+        .agent-node-actions button {
+            font-size: 11px;
+            padding: 3px 8px;
+            border: 1px solid var(--sidebar-border, #e5e7eb);
+            border-radius: 4px;
+            background: var(--group-bg, #fff);
+            cursor: pointer;
+            color: var(--sidebar-item-color, #555);
+        }
+        .agent-node-actions button:hover {
+            background: var(--sidebar-item-hover-bg, #e5e7eb);
+        }
+
+        /* Topology Line */
+        .topo-line {
+            fill: none;
+            stroke: var(--topo-line, #ccc);
+            stroke-width: 2;
+        }
+        .topo-line.active {
+            stroke: var(--topo-line-active, #2563eb);
+            stroke-dasharray: 6 4;
+            animation: line-flow 1s linear infinite;
+        }
+        @keyframes line-flow {
+            to { stroke-dashoffset: -20; }
+        }
     </style>
 </head>
 <body>
@@ -331,52 +736,121 @@
             </div>
         </aside>
         <div class="main-content">
-            <header class="header">
-                <h1>coloop-agent Web</h1>
-                <div class="header-right">
-                    <div class="theme-switcher">
-                        <label for="theme-select">主题</label>
-                        <select id="theme-select">
-                            <option value="claude">Claude 优雅紫</option>
-                            <option value="chatgpt">ChatGPT 极简</option>
-                            <option value="cursor">Cursor 极客暗</option>
-                            <option value="discord">Discord 社交暗</option>
-                            <option value="linear">Linear 专业白</option>
-                            <option value="telegram">Telegram 明快</option>
-                            <option value="terminal">终端复古</option>
-                            <option value="glass">玻璃华丽</option>
-                        </select>
-                        <a href="theme-gallery.html">浏览全部</a>
+            <!-- 单聊模式 -->
+            <div class="single-mode" id="single-mode">
+                <header class="header">
+                    <h1>coloop-agent Web</h1>
+                    <div class="header-right">
+                        <div class="mode-switcher">
+                            <button class="mode-btn active" data-mode="single">单聊</button>
+                            <button class="mode-btn" data-mode="combined">复合</button>
+                        </div>
+                        <div class="theme-switcher">
+                            <label for="theme-select">主题</label>
+                            <select id="theme-select">
+                                <option value="claude">Claude 优雅紫</option>
+                                <option value="chatgpt">ChatGPT 极简</option>
+                                <option value="cursor">Cursor 极客暗</option>
+                                <option value="discord">Discord 社交暗</option>
+                                <option value="linear">Linear 专业白</option>
+                                <option value="telegram">Telegram 明快</option>
+                                <option value="terminal">终端复古</option>
+                                <option value="glass">玻璃华丽</option>
+                            </select>
+                            <a href="theme-gallery.html">浏览全部</a>
+                        </div>
+                        <span id="connection-status" class="status connecting">连接中...</span>
                     </div>
-                    <span id="connection-status" class="status connecting">连接中...</span>
+                </header>
+                <div class="context-bar" id="context-bar">
+                    <div class="context-info">
+                        <span class="context-label">上下文占用</span>
+                        <span class="context-value" id="context-value">0 / 100K (0%)</span>
+                    </div>
+                    <div class="context-progress-bg">
+                        <div class="context-progress-fill" id="context-progress-fill" style="width:0%"></div>
+                    </div>
                 </div>
-            </header>
-            <div class="context-bar" id="context-bar">
-                <div class="context-info">
-                    <span class="context-label">上下文占用</span>
-                    <span class="context-value" id="context-value">0 / 100K (0%)</span>
-                </div>
-                <div class="context-progress-bg">
-                    <div class="context-progress-fill" id="context-progress-fill" style="width:0%"></div>
+                <main class="chat-container" id="chat-container">
+                    <!-- 消息将动态插入这里 -->
+                </main>
+                <footer class="input-area" style="position:relative;">
+                    <div id="command-suggestions" class="command-suggestions"></div>
+                    <label style="font-size:12px;color:var(--sidebar-item-color,#666);align-self:center;white-space:nowrap;">发给:</label>
+                    <select id="single-target-select" style="padding:6px 10px;border-radius:6px;border:1px solid #d1d5db;font-size:13px;background:#fff;align-self:center;">
+                        <option>main</option>
+                    </select>
+                    <textarea id="message-input" placeholder="输入消息... (Shift+Enter 换行, Enter 发送)" rows="2"></textarea>
+                    <button id="send-btn" disabled>发送</button>
+                </footer>
+            </div>
+
+            <!-- 复合模式 -->
+            <div class="combined-mode" id="combined-mode" style="display:none">
+                <header class="header">
+                    <h1>coloop-agent Web</h1>
+                    <div class="header-right">
+                        <div class="mode-switcher">
+                            <button class="mode-btn" data-mode="single">单聊</button>
+                            <button class="mode-btn active" data-mode="combined">复合</button>
+                        </div>
+                        <div class="theme-switcher">
+                            <label for="theme-select-combined">主题</label>
+                            <select id="theme-select-combined">
+                                <option value="claude">Claude 优雅紫</option>
+                                <option value="chatgpt">ChatGPT 极简</option>
+                                <option value="cursor">Cursor 极客暗</option>
+                                <option value="discord">Discord 社交暗</option>
+                                <option value="linear">Linear 专业白</option>
+                                <option value="telegram">Telegram 明快</option>
+                                <option value="terminal">终端复古</option>
+                                <option value="glass">玻璃华丽</option>
+                            </select>
+                            <a href="theme-gallery.html">浏览全部</a>
+                        </div>
+                        <span id="connection-status-combined" class="status connecting">连接中...</span>
+                    </div>
+                </header>
+                <div class="combined-body">
+                    <div class="topology-panel" id="topology-panel">
+                        <div class="topology-header">
+                            <select id="topology-layout-select">
+                                <option value="flow">业务流程</option>
+                                <option value="roundtable">圆桌</option>
+                                <option value="radial">放射</option>
+                            </select>
+                            <span class="topology-toggle" id="topology-toggle">&#9664;</span>
+                        </div>
+                        <div class="topology-canvas" id="topology-canvas">
+                            <svg id="topology-svg" class="topology-svg"></svg>
+                            <div id="topology-nodes"></div>
+                        </div>
+                    </div>
+                    <div class="group-chat-area">
+                        <div class="group-chat-messages" id="group-chat-messages"></div>
+                        <div class="group-chat-members" id="group-chat-members"></div>
+                        <div class="group-chat-input">
+                            <label>发给:</label>
+                            <select id="group-target-select"><option>main</option></select>
+                            <input type="text" id="group-message-input" placeholder="输入消息...">
+                            <button id="group-send-btn">发送</button>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <main class="chat-container" id="chat-container">
-                <!-- 消息将动态插入这里 -->
-            </main>
-            <footer class="input-area" style="position:relative;">
-                <div id="command-suggestions" class="command-suggestions"></div>
-                <textarea id="message-input" placeholder="输入消息... (Shift+Enter 换行, Enter 发送)" rows="2"></textarea>
-                <button id="send-btn" disabled>发送</button>
-            </footer>
         </div>
     </div>
 
     <script src="chat.js?v=2"></script>
+    <script src="graph-state.js?v=1"></script>
+    <script src="group-chat.js?v=1"></script>
+    <script src="topology.js?v=1"></script>
     <script>
         (function() {
             var themeLink = document.getElementById('theme-link');
             var hljsThemeLink = document.getElementById('hljs-theme-link');
             var themeSelect = document.getElementById('theme-select');
+            var themeSelectCombined = document.getElementById('theme-select-combined');
             var STORAGE_KEY = 'coloop-agent-theme';
             var DEFAULT_THEME = 'claude';
 
@@ -390,6 +864,7 @@
                 themeName = themeName || localStorage.getItem(STORAGE_KEY) || DEFAULT_THEME;
                 themeLink.href = 'themes/' + themeName + '.css';
                 if (themeSelect) themeSelect.value = themeName;
+                if (themeSelectCombined) themeSelectCombined.value = themeName;
                 // Sync highlight.js theme
                 if (hljsThemeLink) {
                     var hljsTheme = isDarkTheme(themeName) ? 'github-dark' : 'github';
@@ -401,6 +876,12 @@
                 themeSelect.addEventListener('change', function() {
                     loadTheme(themeSelect.value);
                     localStorage.setItem(STORAGE_KEY, themeSelect.value);
+                });
+            }
+            if (themeSelectCombined) {
+                themeSelectCombined.addEventListener('change', function() {
+                    loadTheme(themeSelectCombined.value);
+                    localStorage.setItem(STORAGE_KEY, themeSelectCombined.value);
                 });
             }
 

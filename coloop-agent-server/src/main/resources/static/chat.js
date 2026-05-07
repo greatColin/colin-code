@@ -198,6 +198,11 @@
         var agent = msg.agentName || 'main';
         ensureAgent(agent);
 
+        // Sync to GraphState for group chat and topology
+        if (window.GraphState) {
+            window.GraphState.updateFromMessage(msg);
+        }
+
         switch (msg.type) {
             case 'subagent_created':
                 addAgentToSidebar(msg.payload);
@@ -497,7 +502,9 @@
         const text = messageInput.value.trim();
         if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
 
-        ws.send(JSON.stringify({ action: 'chat', message: text }));
+        var targetSelect = document.getElementById('single-target-select');
+        var target = targetSelect ? targetSelect.value : 'main';
+        ws.send(JSON.stringify({ action: 'chat', message: text, targetAgent: target }));
         messageInput.value = '';
         hideSuggestions();
     }
@@ -663,6 +670,15 @@
             switchToAgent(name);
         });
         currentSessionListEl.appendChild(item);
+
+        // Update single-mode target select
+        var singleSelect = document.getElementById('single-target-select');
+        if (singleSelect && !singleSelect.querySelector('option[value="' + name + '"]')) {
+            var opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            singleSelect.appendChild(opt);
+        }
     }
 
     function removeAgentFromSidebar(name) {
@@ -673,6 +689,13 @@
         setTimeout(function() {
             if (item.parentNode) item.parentNode.removeChild(item);
         }, 300);
+
+        // Remove from single-mode target select
+        var singleSelect = document.getElementById('single-target-select');
+        if (singleSelect) {
+            var opt = singleSelect.querySelector('option[value="' + name + '"]');
+            if (opt) opt.remove();
+        }
     }
 
     function escapeHtml(str) {
@@ -786,6 +809,34 @@
             }
         });
     }
+
+    // Mode switching
+    var modeBtns = document.querySelectorAll('.mode-btn');
+    var singleModeEl = document.getElementById('single-mode');
+    var combinedModeEl = document.getElementById('combined-mode');
+
+    modeBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var mode = btn.dataset.mode;
+            modeBtns.forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+
+            if (mode === 'single') {
+                if (singleModeEl) singleModeEl.style.display = '';
+                if (combinedModeEl) combinedModeEl.style.display = 'none';
+                if (window.GraphState) window.GraphState.currentMode = 'single';
+            } else {
+                if (singleModeEl) singleModeEl.style.display = 'none';
+                if (combinedModeEl) combinedModeEl.style.display = '';
+                if (window.GraphState) window.GraphState.currentMode = 'combined';
+            }
+        });
+    });
+
+    // Expose ws for group-chat.js
+    Object.defineProperty(window, 'ws', {
+        get: function() { return ws; }
+    });
 
     // Start connection
     connect();
