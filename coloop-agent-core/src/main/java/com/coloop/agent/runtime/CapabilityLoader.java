@@ -163,4 +163,12 @@ public class CapabilityLoader {
 
         return agentLoop;
     }
+
+    /**
+     * Returns an immutable snapshot of currently registered tools.
+     * Used to capture parent tools before adding Agent/SendMessage.
+     */
+    public List<Tool> snapshotTools() {
+        return List.copyOf(tools);
+    }
 }
