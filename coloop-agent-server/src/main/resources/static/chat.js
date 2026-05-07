@@ -69,6 +69,8 @@
     const agentSidebarToggleEl = document.getElementById('agent-sidebar-toggle');
 
     const wsUrl = 'ws://' + window.location.host + '/ws/agent';
+    const STREAM_RENDER_INTERVAL = 80;
+    const STREAM_RENDER_MIN_CHARS = 20;
     let ws = null;
     let reconnectTimer = null;
     let availableCommands = [];
@@ -443,9 +445,10 @@
     }
 
     function updateContextBar(payload) {
+        const valueEl = document.getElementById('context-value');
+        const fillEl = document.getElementById('context-progress-fill');
+
         if (!payload) {
-            var valueEl = document.getElementById('context-value');
-            var fillEl = document.getElementById('context-progress-fill');
             if (valueEl) valueEl.textContent = '0 / 100K (0%)';
             if (fillEl) {
                 fillEl.style.width = '0%';
@@ -454,12 +457,10 @@
             }
             return;
         }
+
         const tokens = payload.tokens || 0;
         const limit = payload.limit || 1;
         const percent = payload.percent || 0;
-
-        const valueEl = document.getElementById('context-value');
-        const fillEl = document.getElementById('context-progress-fill');
         if (!valueEl || !fillEl) return;
 
         function formatNum(n) {

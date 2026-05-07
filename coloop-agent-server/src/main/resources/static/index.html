@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>coloop-agent Web</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A4%96%3C/text%3E%3C/svg%3E">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -11,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.5/dist/purify.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css" id="hljs-theme-link">
-    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.9.0/highlight.min.js"></script>
     <style>
         /* Command Suggestions Overlay */
         .command-suggestions {
@@ -67,12 +68,12 @@
             height: 100vh;
         }
 
-        /* Agent Sidebar */
+        /* Agent Sidebar - colors via CSS vars so themes can override */
         .agent-sidebar {
             width: 220px;
             min-width: 220px;
-            background: #f8f7fa;
-            border-right: 1px solid #e5e2ec;
+            background: var(--sidebar-bg, #f8f7fa);
+            border-right: 1px solid var(--sidebar-border, #e5e2ec);
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -84,7 +85,7 @@
         }
         .agent-sidebar-header {
             padding: 14px;
-            border-bottom: 1px solid #e5e2ec;
+            border-bottom: 1px solid var(--sidebar-border, #e5e2ec);
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -98,7 +99,7 @@
         .agent-sidebar-title {
             font-size: 13px;
             font-weight: 600;
-            color: #4a306d;
+            color: var(--sidebar-title-color, #4a306d);
             font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace;
             white-space: nowrap;
             overflow: hidden;
@@ -111,7 +112,7 @@
         .agent-sidebar-toggle {
             font-size: 13px;
             cursor: pointer;
-            color: #8b7aa0;
+            color: var(--sidebar-toggle-color, #8b7aa0);
             width: 28px;
             height: 28px;
             border-radius: 6px;
@@ -123,8 +124,8 @@
             flex-shrink: 0;
         }
         .agent-sidebar-toggle:hover {
-            background: #e5e2ec;
-            color: #4a306d;
+            background: var(--sidebar-toggle-hover-bg, #e5e2ec);
+            color: var(--sidebar-toggle-hover-color, #4a306d);
         }
         .agent-list {
             flex: 1;
@@ -147,7 +148,7 @@
             border: none;
             font-size: 13px;
             line-height: 1.4;
-            color: #555;
+            color: var(--sidebar-item-color, #555);
             cursor: pointer;
             transition: all 0.15s ease;
             white-space: nowrap;
@@ -155,14 +156,14 @@
             background: transparent;
         }
         .agent-item:hover {
-            background: #ede9f7;
-            color: #4a306d;
+            background: var(--sidebar-item-hover-bg, #ede9f7);
+            color: var(--sidebar-item-hover-color, #4a306d);
         }
         .agent-item.active {
-            background: #f0ebfa;
-            color: #4a306d;
+            background: var(--sidebar-item-active-bg, #f0ebfa);
+            color: var(--sidebar-item-active-color, #4a306d);
             font-weight: 600;
-            box-shadow: inset 3px 0 0 0 #8b5cf6;
+            box-shadow: inset 3px 0 0 0 var(--sidebar-item-active-border, #8b5cf6);
         }
         .agent-sidebar.collapsed .agent-item {
             padding: 6px;
@@ -172,8 +173,8 @@
             border-radius: 10px;
         }
         .agent-sidebar.collapsed .agent-item.active {
-            background: #8b5cf6;
-            color: #fff;
+            background: var(--sidebar-collapsed-active-bg, #8b5cf6);
+            color: var(--sidebar-collapsed-active-color, #fff);
             box-shadow: none;
         }
         .agent-item.removing {
@@ -190,11 +191,11 @@
             width: 28px;
             height: 28px;
             border-radius: 8px;
-            background: #e8e5f0;
+            background: var(--sidebar-icon-bg, #e8e5f0);
             transition: all 0.15s ease;
         }
         .agent-item.active .agent-icon {
-            background: #ddd6fe;
+            background: var(--sidebar-icon-active-bg, #ddd6fe);
         }
         .agent-sidebar.collapsed .agent-icon {
             width: 100%;
@@ -222,7 +223,7 @@
             background: transparent;
         }
         .agent-list::-webkit-scrollbar-thumb {
-            background: #d1cbe6;
+            background: var(--sidebar-scrollbar, #d1cbe6);
             border-radius: 2px;
         }
         .main-content {

@@ -23,7 +23,7 @@ public class SendMessageTool extends BaseTool {
         return "Send a follow-up message to an existing named subagent. " +
                "This preserves conversation history and context. " +
                "ALWAYS use this instead of re-creating the subagent with 'Agent' when the task has continuity. " +
-               "The subagent must have been created via the 'Agent' tool first.";
+               "The subagent must have been created via the '/Agent' tool first.";
     }
 
     @Override

@@ -10,6 +10,23 @@ body {
     background: linear-gradient(135deg, #faf8f5 0%, #f0e6f6 100%);
     height: 100vh;
     overflow: hidden;
+    --sidebar-bg: #f8f7fa;
+    --sidebar-border: #e5e2ec;
+    --sidebar-title-color: #4a306d;
+    --sidebar-toggle-color: #8b7aa0;
+    --sidebar-toggle-hover-bg: #e5e2ec;
+    --sidebar-toggle-hover-color: #4a306d;
+    --sidebar-item-color: #555;
+    --sidebar-item-hover-bg: #ede9f7;
+    --sidebar-item-hover-color: #4a306d;
+    --sidebar-item-active-bg: #f0ebfa;
+    --sidebar-item-active-color: #4a306d;
+    --sidebar-item-active-border: #8b5cf6;
+    --sidebar-collapsed-active-bg: #8b5cf6;
+    --sidebar-collapsed-active-color: #fff;
+    --sidebar-icon-bg: #e8e5f0;
+    --sidebar-icon-active-bg: #ddd6fe;
+    --sidebar-scrollbar: #d1cbe6;
 }
 
 .app {

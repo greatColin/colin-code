@@ -1,4 +1,4 @@
-/* Glassmorphism - modern glass aesthetic */
+/* macOS Liquid Glass - inspired by iOS 18 / macOS 15 */
 * {
     margin: 0;
     padding: 0;
@@ -6,29 +6,37 @@
 }
 
 body {
-    font-family: 'Space Grotesk', 'Inter', sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #667eea 100%);
-    background-size: 400% 400%;
-    animation: gradientShift 15s ease infinite;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif;
+    background: radial-gradient(ellipse at 30% 20%, #1a1a2e 0%, #16213e 40%, #0f0f23 100%);
     color: #fff;
     height: 100vh;
     overflow: hidden;
-}
-
-@keyframes gradientShift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
+    --sidebar-bg: rgba(255,255,255,0.06);
+    --sidebar-border: rgba(255,255,255,0.12);
+    --sidebar-title-color: rgba(255,255,255,0.9);
+    --sidebar-toggle-color: rgba(255,255,255,0.5);
+    --sidebar-toggle-hover-bg: rgba(255,255,255,0.15);
+    --sidebar-toggle-hover-color: #fff;
+    --sidebar-item-color: rgba(255,255,255,0.75);
+    --sidebar-item-hover-bg: rgba(255,255,255,0.12);
+    --sidebar-item-hover-color: #fff;
+    --sidebar-item-active-bg: rgba(255,255,255,0.2);
+    --sidebar-item-active-color: #fff;
+    --sidebar-item-active-border: rgba(255,255,255,0.5);
+    --sidebar-collapsed-active-bg: rgba(255,255,255,0.3);
+    --sidebar-collapsed-active-color: #fff;
+    --sidebar-icon-bg: rgba(255,255,255,0.12);
+    --sidebar-icon-active-bg: rgba(255,255,255,0.2);
+    --sidebar-scrollbar: rgba(255,255,255,0.15);
 }
 
 .app {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     height: 100vh;
-    max-width: 900px;
-    margin: 0 auto;
+    max-width: none;
+    margin: 0;
     background: transparent;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.2);
 }
 
 /* Header */
@@ -36,17 +44,19 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 14px 20px;
-    background: rgba(255,255,255,0.1);
-    backdrop-filter: blur(20px);
-    border-bottom: 1px solid rgba(255,255,255,0.2);
+    padding: 12px 20px;
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.15);
 }
 
 .header h1 {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 600;
-    color: #fff;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    color: rgba(255,255,255,0.9);
+    letter-spacing: -0.2px;
 }
 
 .header-right {
@@ -56,16 +66,16 @@ body {
 }
 
 .status {
-    font-size: 12px;
-    padding: 4px 12px;
+    font-size: 11px;
+    padding: 3px 10px;
     border-radius: 20px;
     font-weight: 500;
     backdrop-filter: blur(10px);
 }
 
-.status.connecting { background: rgba(255,200,50,0.3); color: #ffe066; }
-.status.connected { background: rgba(50,255,150,0.3); color: #66ffb2; }
-.status.disconnected { background: rgba(255,80,80,0.3); color: #ff9999; }
+.status.connecting { background: rgba(255,200,0,0.2); color: #ffd700; }
+.status.connected { background: rgba(0,255,100,0.15); color: #50fa7b; }
+.status.disconnected { background: rgba(255,50,50,0.2); color: #ff6b6b; }
 
 /* Chat Container */
 .chat-container {
@@ -81,7 +91,7 @@ body {
 .message {
     max-width: 85%;
     padding: 12px 16px;
-    border-radius: 12px;
+    border-radius: 18px;
     font-size: 14px;
     line-height: 1.6;
     word-break: break-word;
@@ -91,54 +101,54 @@ body {
 /* User message */
 .message.user {
     align-self: flex-end;
-    background: rgba(255,255,255,0.25);
-    backdrop-filter: blur(20px);
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
     color: #fff;
-    border-radius: 20px 20px 4px 20px;
-    border: 1px solid rgba(255,255,255,0.3);
-    box-shadow: 0 4px 30px rgba(0,0,0,0.1);
+    border-radius: 18px 18px 4px 18px;
+    border: 1px solid rgba(255,255,255,0.2);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2);
 }
 
 /* Assistant message */
 .message.assistant {
     align-self: flex-start;
-    background: rgba(255,255,255,0.15);
-    backdrop-filter: blur(20px);
-    color: #fff;
-    border: none;
-    border-radius: 20px 20px 20px 4px;
-    border: 1px solid rgba(255,255,255,0.25);
-    box-shadow: 0 4px 30px rgba(0,0,0,0.1);
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    color: rgba(255,255,255,0.95);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 18px 18px 18px 4px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.15);
+    padding: 14px 18px;
+    line-height: 1.7;
 }
 
 /* Loop start */
 .message.loop-start {
     align-self: center;
     background: transparent;
-    color: rgba(255,255,255,0.7);
+    color: rgba(255,255,255,0.4);
     font-size: 12px;
     padding: 4px 12px;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
 /* System message */
 .message.system {
     align-self: center;
     background: transparent;
-    color: rgba(255,255,255,0.8);
+    color: rgba(255,200,100,0.8);
     font-size: 12px;
     padding: 4px 12px;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
 /* Error message */
 .message.error {
     align-self: center;
     background: transparent;
-    color: #ff9999;
+    color: #ff6b6b;
     font-size: 12px;
     padding: 4px 12px;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
 /* Cards */
@@ -147,10 +157,11 @@ body {
     max-width: 90%;
     border-radius: 16px;
     overflow: hidden;
-    background: rgba(255,255,255,0.1);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255,255,255,0.2);
-    box-shadow: 0 4px 30px rgba(0,0,0,0.1);
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.1);
 }
 
 /* Thinking card */
@@ -159,13 +170,13 @@ body {
 }
 
 .card.thinking .card-header {
-    background: rgba(255,255,255,0.15);
-    color: rgba(255,255,255,0.9);
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.85);
     backdrop-filter: blur(10px);
 }
 
 .card.thinking .card-header:hover {
-    background: rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.15);
 }
 
 .card-title {
@@ -175,7 +186,7 @@ body {
 
 .card-toggle {
     font-size: 12px;
-    color: rgba(255,255,255,0.6);
+    color: rgba(255,255,255,0.5);
 }
 
 .card-body {
@@ -186,17 +197,17 @@ body {
     font-family: 'JetBrains Mono', monospace;
     max-height: 400px;
     overflow-y: auto;
-    background: rgba(0,0,0,0.1);
+    background: rgba(0,0,0,0.15);
 }
 
 .card-preview {
     padding: 8px 16px;
     font-size: 12px;
-    color: rgba(255,255,255,0.6);
+    color: rgba(255,255,255,0.5);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    border-top: 1px solid rgba(255,255,255,0.1);
+    border-top: 1px solid rgba(255,255,255,0.08);
 }
 
 .card-preview.collapsed {
@@ -213,17 +224,17 @@ body {
 }
 
 .card.tool-call .card-header {
-    background: rgba(255,200,50,0.25);
-    color: #ffe066;
+    background: rgba(255,200,0,0.12);
+    color: #ffd700;
     backdrop-filter: blur(10px);
 }
 
 .card.tool-call .card-header:hover {
-    background: rgba(255,200,50,0.35);
+    background: rgba(255,200,0,0.2);
 }
 
 .card.tool-call .card-title {
-    color: #ffe066;
+    color: #ffd700;
 }
 
 /* Tool result card */
@@ -232,22 +243,22 @@ body {
 }
 
 .card.tool-result .card-header {
-    background: rgba(50,255,150,0.2);
-    color: #66ffb2;
+    background: rgba(0,255,100,0.1);
+    color: #50fa7b;
     backdrop-filter: blur(10px);
 }
 
 .card.tool-result .card-header:hover {
-    background: rgba(50,255,150,0.3);
+    background: rgba(0,255,100,0.18);
 }
 
 .card.tool-result .card-title {
-    color: #66ffb2;
+    color: #50fa7b;
 }
 
 .card.tool-result .card-body {
     color: rgba(255,255,255,0.85);
-    background: rgba(0,0,0,0.1);
+    background: rgba(0,0,0,0.15);
     font-family: 'JetBrains Mono', monospace;
 }
 
@@ -265,57 +276,62 @@ body {
     display: flex;
     gap: 10px;
     padding: 12px 20px;
-    background: rgba(255,255,255,0.1);
-    backdrop-filter: blur(20px);
-    border-top: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.15);
 }
 
 .input-area textarea {
     flex: 1;
     padding: 10px 16px;
-    border: 1px solid rgba(255,255,255,0.25);
+    border: 1px solid rgba(255,255,255,0.15);
     border-radius: 20px;
     font-size: 14px;
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
     resize: none;
     outline: none;
-    background: rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.08);
     backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     color: #fff;
 }
 
 .input-area textarea::placeholder {
-    color: rgba(255,255,255,0.5);
+    color: rgba(255,255,255,0.4);
 }
 
 .input-area textarea:focus {
-    border-color: rgba(255,255,255,0.5);
+    border-color: rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.12);
 }
 
 .input-area textarea:disabled {
-    background: rgba(255,255,255,0.05);
+    background: rgba(255,255,255,0.03);
     color: rgba(255,255,255,0.3);
 }
 
 .input-area button {
     padding: 10px 24px;
-    background: rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.2);
     backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     color: #fff;
-    border: 1px solid rgba(255,255,255,0.4);
+    border: 1px solid rgba(255,255,255,0.3);
     border-radius: 20px;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 2px 8px rgba(0,0,0,0.2);
 }
 
 .input-area button:hover:not(:disabled) {
-    background: rgba(255,255,255,0.4);
+    background: rgba(255,255,255,0.3);
 }
 
 .input-area button:disabled {
-    background: rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.08);
     color: rgba(255,255,255,0.4);
     cursor: not-allowed;
 }
@@ -329,29 +345,30 @@ body {
 
 .theme-switcher label {
     font-size: 12px;
-    color: rgba(255,255,255,0.7);
+    color: rgba(255,255,255,0.6);
 }
 
 .theme-switcher select {
     padding: 4px 10px;
-    border: 1px solid rgba(255,255,255,0.3);
+    border: 1px solid rgba(255,255,255,0.2);
     border-radius: 20px;
     font-size: 13px;
-    font-family: 'Space Grotesk', sans-serif;
-    background: rgba(255,255,255,0.15);
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    background: rgba(255,255,255,0.1);
     backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     color: #fff;
     cursor: pointer;
     outline: none;
 }
 
 .theme-switcher select:focus {
-    border-color: rgba(255,255,255,0.5);
+    border-color: rgba(255,255,255,0.4);
 }
 
 .theme-switcher a {
     font-size: 12px;
-    color: #fff;
+    color: rgba(255,255,255,0.8);
     text-decoration: none;
     margin-left: 8px;
 }
@@ -366,23 +383,42 @@ body {
 .message.assistant p:last-child { margin-bottom: 0; }
 .message.assistant ul, .message.assistant ol { padding-left: 1.5em; margin: 0.5em 0; }
 .message.assistant li { line-height: 1.6; margin: 0.2em 0; }
-.message.assistant code { font-family: 'JetBrains Mono', monospace; font-size: 0.9em; background: rgba(255,255,255,0.15); color: #e0e7ff; padding: 2px 6px; border-radius: 4px; }
-.message.assistant pre { background: rgba(0,0,0,0.4); border-radius: 8px; padding: 12px 16px; overflow-x: auto; margin: 0.5em 0; border: 1px solid rgba(255,255,255,0.1); }
+.message.assistant code { font-family: 'JetBrains Mono', monospace; font-size: 0.9em; background: rgba(255,255,255,0.12); color: #e0e7ff; padding: 2px 6px; border-radius: 4px; }
+.message.assistant pre { background: rgba(0,0,0,0.4); border-radius: 12px; padding: 12px 16px; overflow-x: auto; margin: 0.5em 0; border: 1px solid rgba(255,255,255,0.1); }
 .message.assistant pre code { background: transparent; color: #e0e7ff; padding: 0; font-size: 13px; line-height: 1.5; }
 .message.assistant blockquote { border-left: 3px solid rgba(255,255,255,0.3); padding-left: 12px; margin: 0.5em 0; color: #a5b4fc; font-style: italic; }
 .message.assistant a { color: #a5b4fc; text-decoration: none; }
 .message.assistant a:hover { text-decoration: underline; }
 .message.assistant table { border-collapse: collapse; margin: 0.5em 0; font-size: 13px; }
 .message.assistant th, .message.assistant td { border: 1px solid rgba(255,255,255,0.15); padding: 6px 10px; text-align: left; }
-.message.assistant th { background: rgba(255,255,255,0.1); font-weight: 600; }
+.message.assistant th { background: rgba(255,255,255,0.08); font-weight: 600; }
 .message.assistant hr { border: none; border-top: 1px solid rgba(255,255,255,0.15); margin: 1em 0; }
+
+/* Streaming cursor */
+.stream-cursor {
+    display: inline-block;
+    width: 8px;
+    height: 1.2em;
+    background: currentColor;
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    animation: stream-blink 1s step-end infinite;
+    opacity: 0.7;
+}
+
+@keyframes stream-blink {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 0; }
+}
 
 /* Context usage bar */
 .context-bar {
     padding: 8px 20px;
-    background: rgba(255,255,255,0.1);
-    border-bottom: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
     flex-shrink: 0;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
 }
 .context-info {
     display: flex;
@@ -393,16 +429,16 @@ body {
 .context-label {
     font-size: 12px;
     font-weight: 500;
-    color: rgba(255,255,255,0.7);
+    color: rgba(255,255,255,0.6);
 }
 .context-value {
     font-size: 12px;
-    color: #fff;
+    color: rgba(255,255,255,0.9);
     font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace;
 }
 .context-progress-bg {
     height: 4px;
-    background: rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.15);
     border-radius: 2px;
     overflow: hidden;
 }

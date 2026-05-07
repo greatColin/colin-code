@@ -11,6 +11,23 @@ body {
     color: #dcddde;
     height: 100vh;
     overflow: hidden;
+    --sidebar-bg: #2f3136;
+    --sidebar-border: #202225;
+    --sidebar-title-color: #fff;
+    --sidebar-toggle-color: #b9bbbe;
+    --sidebar-toggle-hover-bg: #40444b;
+    --sidebar-toggle-hover-color: #fff;
+    --sidebar-item-color: #dcddde;
+    --sidebar-item-hover-bg: #40444b;
+    --sidebar-item-hover-color: #fff;
+    --sidebar-item-active-bg: #40444b;
+    --sidebar-item-active-color: #fff;
+    --sidebar-item-active-border: #5865f2;
+    --sidebar-collapsed-active-bg: #5865f2;
+    --sidebar-collapsed-active-color: #fff;
+    --sidebar-icon-bg: #40444b;
+    --sidebar-icon-active-bg: #40444b;
+    --sidebar-scrollbar: #40444b;
 }
 
 .app {

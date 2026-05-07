@@ -30,6 +30,17 @@ public class SubagentLoggingHook extends AbstractWebSocketLoggingHook {
     }
 
     @Override
+    public void beforeLLMCall(java.util.List<java.util.Map<String, Object>> messages) {
+        if (agentLoop != null) {
+            send(WebSocketMessage.contextUsage(
+                agentLoop.getCurrentTokenCount(),
+                agentLoop.getContextLimit(),
+                agentLoop.getContextUsagePercent()
+            ));
+        }
+    }
+
+    @Override
     public void onThinking(String content, String reasoningContent) {
         send(WebSocketMessage.thinking(content, reasoningContent));
     }
@@ -53,6 +64,13 @@ public class SubagentLoggingHook extends AbstractWebSocketLoggingHook {
             send(WebSocketMessage.system(finalResponse));
         } else {
             send(WebSocketMessage.assistant(finalResponse));
+        }
+        if (agentLoop != null) {
+            send(WebSocketMessage.contextUsage(
+                agentLoop.getCurrentTokenCount(),
+                agentLoop.getContextLimit(),
+                agentLoop.getContextUsagePercent()
+            ));
         }
     }
 

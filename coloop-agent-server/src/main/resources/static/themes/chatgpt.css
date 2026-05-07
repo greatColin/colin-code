@@ -10,6 +10,23 @@ body {
     background: #ffffff;
     height: 100vh;
     overflow: hidden;
+    --sidebar-bg: #f9f9f9;
+    --sidebar-border: #e5e5e5;
+    --sidebar-title-color: #111;
+    --sidebar-toggle-color: #666;
+    --sidebar-toggle-hover-bg: #eee;
+    --sidebar-toggle-hover-color: #111;
+    --sidebar-item-color: #333;
+    --sidebar-item-hover-bg: #f0f0f0;
+    --sidebar-item-hover-color: #111;
+    --sidebar-item-active-bg: #f0f0f0;
+    --sidebar-item-active-color: #111;
+    --sidebar-item-active-border: #19c37d;
+    --sidebar-collapsed-active-bg: #19c37d;
+    --sidebar-collapsed-active-color: #fff;
+    --sidebar-icon-bg: #f0f0f0;
+    --sidebar-icon-active-bg: #f0f0f0;
+    --sidebar-scrollbar: #ccc;
 }
 
 .app {
