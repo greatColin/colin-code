@@ -811,25 +811,27 @@
     }
 
     // Mode switching
-    var modeBtns = document.querySelectorAll('.mode-btn');
     var singleModeEl = document.getElementById('single-mode');
     var combinedModeEl = document.getElementById('combined-mode');
 
-    modeBtns.forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            var mode = btn.dataset.mode;
-            modeBtns.forEach(function(b) { b.classList.remove('active'); });
-            btn.classList.add('active');
+    function switchMode(mode) {
+        document.querySelectorAll('.mode-btn').forEach(function(b) {
+            if (b.dataset.mode === mode) b.classList.add('active');
+            else b.classList.remove('active');
+        });
+        if (mode === 'single') {
+            if (singleModeEl) singleModeEl.style.display = '';
+            if (combinedModeEl) combinedModeEl.style.display = 'none';
+        } else {
+            if (singleModeEl) singleModeEl.style.display = 'none';
+            if (combinedModeEl) combinedModeEl.style.display = '';
+        }
+        if (window.GraphState) window.GraphState.currentMode = mode;
+    }
 
-            if (mode === 'single') {
-                if (singleModeEl) singleModeEl.style.display = '';
-                if (combinedModeEl) combinedModeEl.style.display = 'none';
-                if (window.GraphState) window.GraphState.currentMode = 'single';
-            } else {
-                if (singleModeEl) singleModeEl.style.display = 'none';
-                if (combinedModeEl) combinedModeEl.style.display = '';
-                if (window.GraphState) window.GraphState.currentMode = 'combined';
-            }
+    document.querySelectorAll('.mode-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            switchMode(btn.dataset.mode);
         });
     });
 

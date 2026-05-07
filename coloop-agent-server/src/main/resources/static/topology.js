@@ -108,10 +108,10 @@
             var statusClass = a.status === 'working' ? 'agent-node-working' : (a.status === 'idle' ? 'agent-node-idle' : '');
             var statusText = '';
             if (a.status === 'working') {
-                if (a.currentActivity === 'thinking') statusText = 'Ǵad 思考中...';
-                else if (a.currentActivity && a.currentActivity.startsWith('tool_call:')) statusText = 'ǵ27 ' + a.currentActivity.split(':')[1];
-                else if (a.currentActivity === 'stream') statusText = 'ɰd 输出中...';
-                else statusText = 'Ƕ80 运行中...';
+                if (a.currentActivity === 'thinking') statusText = '💭 思考中...';
+                else if (a.currentActivity && a.currentActivity.startsWith('tool_call:')) statusText = '🔧 ' + a.currentActivity.split(':')[1];
+                else if (a.currentActivity === 'stream') statusText = '✍️ 输出中...';
+                else statusText = '🚀 运行中...';
             }
             var bubbleHtml = '';
             if (a.status === 'answering' && a.lastMessage) {

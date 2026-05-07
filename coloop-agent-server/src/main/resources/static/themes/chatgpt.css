@@ -32,6 +32,18 @@ body {
     --sidebar-history-item-color: #333;
     --sidebar-history-item-hover-bg: #f0f0f0;
     --sidebar-history-item-hover-color: #111;
+    --group-bg: #fff;
+    --group-sidebar-bg: #f8f7fa;
+    --group-bubble-self-bg: #2563eb;
+    --group-bubble-self-color: #fff;
+    --group-bubble-other-bg: #f3f4f6;
+    --group-bubble-other-color: #111;
+    --group-system-color: #9ca3af;
+    --topo-bg: #f5f5f5;
+    --topo-node-border: #e5e7eb;
+    --topo-bubble-bg: #fff;
+    --topo-line: rgba(0,0,0,0.15);
+    --topo-line-active: var(--sidebar-item-active-border);
 }
 
 .app {

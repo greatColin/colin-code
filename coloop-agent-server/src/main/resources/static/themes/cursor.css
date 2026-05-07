@@ -33,6 +33,18 @@ body {
     --sidebar-history-item-color: #c9d1d9;
     --sidebar-history-item-hover-bg: #21262d;
     --sidebar-history-item-hover-color: #58a6ff;
+    --group-bg: rgba(255,255,255,0.05);
+    --group-sidebar-bg: rgba(255,255,255,0.06);
+    --group-bubble-self-bg: rgba(255,255,255,0.2);
+    --group-bubble-self-color: #fff;
+    --group-bubble-other-bg: rgba(255,255,255,0.1);
+    --group-bubble-other-color: rgba(255,255,255,0.9);
+    --group-system-color: rgba(255,255,255,0.4);
+    --topo-bg: transparent;
+    --topo-node-border: rgba(255,255,255,0.15);
+    --topo-bubble-bg: rgba(255,255,255,0.08);
+    --topo-line: rgba(255,255,255,0.15);
+    --topo-line-active: rgba(255,255,255,0.5);
 }
 
 .app {
