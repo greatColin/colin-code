@@ -32,13 +32,11 @@ public class SubagentLoggingHook extends AbstractWebSocketLoggingHook {
     @Override
     public void beforeLLMCall(java.util.List<java.util.Map<String, Object>> messages) {
         if (agentLoop != null) {
-            int tokens = agentLoop.getCurrentTokenCount();
-            int limit = agentLoop.getContextLimit();
-            int pct = agentLoop.getContextUsagePercent();
-            System.out.println("[SubagentLoggingHook] " + agentName + " context_usage: " + tokens + "/" + limit + " (" + pct + "%)");
-            send(WebSocketMessage.contextUsage(tokens, limit, pct));
-        } else {
-            System.out.println("[SubagentLoggingHook] " + agentName + " beforeLLMCall: agentLoop is null");
+            send(WebSocketMessage.contextUsage(
+                agentLoop.getCurrentTokenCount(),
+                agentLoop.getContextLimit(),
+                agentLoop.getContextUsagePercent()
+            ));
         }
     }
 
@@ -68,13 +66,11 @@ public class SubagentLoggingHook extends AbstractWebSocketLoggingHook {
             send(WebSocketMessage.assistant(finalResponse));
         }
         if (agentLoop != null) {
-            int tokens = agentLoop.getCurrentTokenCount();
-            int limit = agentLoop.getContextLimit();
-            int pct = agentLoop.getContextUsagePercent();
-            System.out.println("[SubagentLoggingHook] " + agentName + " onLoopEnd context_usage: " + tokens + "/" + limit + " (" + pct + "%)");
-            send(WebSocketMessage.contextUsage(tokens, limit, pct));
-        } else {
-            System.out.println("[SubagentLoggingHook] " + agentName + " onLoopEnd: agentLoop is null");
+            send(WebSocketMessage.contextUsage(
+                agentLoop.getCurrentTokenCount(),
+                agentLoop.getContextLimit(),
+                agentLoop.getContextUsagePercent()
+            ));
         }
     }
 
