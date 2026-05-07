@@ -29,12 +29,12 @@ public final class SubagentRegistry {
     public void createOrReplace(String name, SubagentInstance instance) {
         synchronized (this) {
             SubagentInstance old = map.remove(name);
-            map.put(name, instance);
             if (old != null) {
                 for (SubagentEventListener l : listeners) {
                     l.onCleared(name);
                 }
             }
+            map.put(name, instance);
             for (SubagentEventListener l : listeners) {
                 l.onCreated(instance);
             }
