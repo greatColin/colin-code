@@ -12,6 +12,7 @@ public class WebSocketMessage {
     private String type;
     private Map<String, Object> payload;
     private long timestamp;
+    private String agentName;
 
     public WebSocketMessage() {
         this.timestamp = System.currentTimeMillis();
@@ -112,6 +113,25 @@ public class WebSocketMessage {
         payload.put("status", status);
         payload.put("description", description);
         return new WebSocketMessage("task_update", payload);
+    }
+
+    public WebSocketMessage withAgent(String name) { this.agentName = name; return this; }
+
+    public String getAgentName() { return agentName; }
+    public void setAgentName(String agentName) { this.agentName = agentName; }
+
+    public static WebSocketMessage subagentCreated(String name, String description, String summary) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("name", name);
+        payload.put("description", description);
+        if (summary != null) payload.put("summary", summary);
+        return new WebSocketMessage("subagent_created", payload);
+    }
+
+    public static WebSocketMessage subagentCleared(String name) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("name", name);
+        return new WebSocketMessage("subagent_cleared", payload);
     }
 
     public String getType() {
