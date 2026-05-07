@@ -2,6 +2,9 @@ package com.coloop.agent.server.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 
+import com.coloop.agent.core.history.SessionMeta;
+
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -132,6 +135,28 @@ public class WebSocketMessage {
         Map<String, Object> payload = new HashMap<>();
         payload.put("name", name);
         return new WebSocketMessage("subagent_cleared", payload);
+    }
+
+    public static WebSocketMessage historyList(List<SessionMeta> sessions) {
+        Map<String, Object> payload = new HashMap<>();
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (SessionMeta s : sessions) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", s.id);
+            item.put("title", s.title);
+            item.put("createdAt", s.createdAt);
+            item.put("updatedAt", s.updatedAt);
+            list.add(item);
+        }
+        payload.put("sessions", list);
+        return new WebSocketMessage("history_list", payload);
+    }
+
+    public static WebSocketMessage sessionLoaded(String sessionId, String title) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("sessionId", sessionId);
+        payload.put("title", title);
+        return new WebSocketMessage("session_loaded", payload);
     }
 
     public String getType() {
