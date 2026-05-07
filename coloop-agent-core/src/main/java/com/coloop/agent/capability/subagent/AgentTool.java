@@ -45,6 +45,10 @@ public class AgentTool extends BaseTool {
             "items", Map.of("type", "string"),
             "description", "Tool name whitelist; omit for default parent toolset minus Agent/SendMessage."
         ));
+        props.put("return_thinking", Map.of(
+            "type", "boolean",
+            "description", "Whether to include <think> blocks in the result returned to the parent agent. Default false."
+        ));
 
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("type", "object");
@@ -77,9 +81,14 @@ public class AgentTool extends BaseTool {
             return "Error: tool_names resulted in empty toolset";
         }
 
+        // Whether to include <think> blocks in the result returned to the parent agent.
+        // Default false because reasoning content is usually noise for the parent;
+        // WebSocket thinking events are still sent to the frontend regardless.
+        boolean returnThinking = Boolean.TRUE.equals(params.get("return_thinking"));
+
         try {
             AgentLoop subLoop = factory.create(name, systemPrompt, toolNames);
-            SubagentInstance instance = new SubagentInstance(name, description, systemPrompt, toolNames, subLoop);
+            SubagentInstance instance = new SubagentInstance(name, description, systemPrompt, toolNames, subLoop, returnThinking);
 
             synchronized (instance.runLock) {
                 instance.running = true;
@@ -88,7 +97,7 @@ public class AgentTool extends BaseTool {
 
             try {
                 String result = subLoop.chat(prompt);
-                return result;
+                return returnThinking ? result : stripThinkBlocks(result);
             } finally {
                 synchronized (instance.runLock) {
                     instance.running = false;
@@ -109,5 +118,15 @@ public class AgentTool extends BaseTool {
         return names.stream()
             .filter(n -> !FORBIDDEN_TOOLS.contains(n))
             .collect(Collectors.toList());
+    }
+
+    /**
+     * Strip <think>...</think> blocks from content.
+     * Used when return_thinking is false so the parent agent receives clean results.
+     * WebSocket thinking events are unaffected.
+     */
+    static String stripThinkBlocks(String content) {
+        if (content == null) return null;
+        return content.replaceAll("(?s)<think>.*?</think>\\s*", "").trim();
     }
 }

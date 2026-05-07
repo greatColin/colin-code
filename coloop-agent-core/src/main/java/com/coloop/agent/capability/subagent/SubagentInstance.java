@@ -26,15 +26,24 @@ public final class SubagentInstance {
     public final long createdAt;
     public volatile boolean running;
     public final Object runLock = new Object();
+    /** Whether to include &lt;think&gt; blocks in tool results returned to the parent agent. */
+    public final boolean returnThinking;
 
     public SubagentInstance(String name, String description,
                             String systemPrompt, List<String> toolNames,
                             AgentLoop agentLoop) {
+        this(name, description, systemPrompt, toolNames, agentLoop, false);
+    }
+
+    public SubagentInstance(String name, String description,
+                            String systemPrompt, List<String> toolNames,
+                            AgentLoop agentLoop, boolean returnThinking) {
         this.name = name;
         this.description = description;
         this.systemPrompt = systemPrompt;
         this.toolNames = toolNames;
         this.agentLoop = agentLoop;
+        this.returnThinking = returnThinking;
         this.createdAt = System.currentTimeMillis();
     }
 }

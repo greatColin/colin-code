@@ -32,6 +32,10 @@ public class SendMessageTool extends BaseTool {
         props.put("to", Map.of("type", "string", "description", "Name of the target subagent."));
         props.put("message", Map.of("type", "string", "description", "The user message to append."));
         props.put("summary", Map.of("type", "string", "description", "5-10 word preview (v1: WS-event only, not rendered)."));
+        props.put("return_thinking", Map.of(
+            "type", "boolean",
+            "description", "Whether to include <think> blocks in the result returned to the parent agent. Default false."
+        ));
 
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("type", "object");
@@ -55,6 +59,17 @@ public class SendMessageTool extends BaseTool {
             return "Error: subagent '" + to + "' not found";
         }
 
+        // Whether to include <think> blocks in the result returned to the parent agent.
+        // Falls back to the subagent's creation-time setting if not explicitly provided.
+        // Default false because reasoning content is usually noise for the parent;
+        // WebSocket thinking events are still sent to the frontend regardless.
+        boolean returnThinking;
+        if (params.containsKey("return_thinking")) {
+            returnThinking = Boolean.TRUE.equals(params.get("return_thinking"));
+        } else {
+            returnThinking = inst.returnThinking;
+        }
+
         synchronized (inst.runLock) {
             if (inst.running) {
                 // inject while running; agent will pick it up in next iteration
@@ -65,7 +80,8 @@ public class SendMessageTool extends BaseTool {
         }
 
         try {
-            return inst.agentLoop.chat(message);
+            String result = inst.agentLoop.chat(message);
+            return returnThinking ? result : AgentTool.stripThinkBlocks(result);
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         } finally {
