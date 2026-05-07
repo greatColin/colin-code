@@ -136,11 +136,17 @@ public class AgentLoop {
                 }
                 injectPendingUserMessages();
             } else {
-                // 4.2 无 tool_calls 则返回最终响应
+                // 4.2 无 tool_calls，返回最终响应
                 String finalResponse = response.getContent() != null ? response.getContent() : "";
                 messageBuilder.addAssistantMessage(messages, response);
                 for (AgentHook h : hooks) {
                     h.onLoopEnd(finalResponse);
+                }
+                // 如果运行中有用户注入消息，追加后继续循环
+                boolean hadPending = !pendingUserMessages.isEmpty();
+                injectPendingUserMessages();
+                if (hadPending) {
+                    continue;
                 }
                 return finalResponse;
             }
@@ -261,10 +267,17 @@ public class AgentLoop {
                 }
                 injectPendingUserMessages();
             } else {
+                // 无 tool_calls，返回最终响应
                 String finalResponse = response.getContent() != null ? response.getContent() : "";
                 messageBuilder.addAssistantMessage(messages, response);
                 for (AgentHook h : hooks) {
                     h.onLoopEnd(finalResponse);
+                }
+                // 如果运行中有用户注入消息，追加后继续循环
+                boolean hadPending = !pendingUserMessages.isEmpty();
+                injectPendingUserMessages();
+                if (hadPending) {
+                    continue;
                 }
                 return finalResponse;
             }

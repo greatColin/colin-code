@@ -84,6 +84,7 @@
                 streamBuffer: '',
                 lastRenderTime: 0,
                 streamRenderTimer: null,
+                contextUsage: null,
                 meta: meta || { name: name }
             });
         }
@@ -127,6 +128,8 @@
         }
         currentAgent = name;
         updateSidebarActive(name);
+        var stCtx = agentState.get(name);
+        updateContextBar(stCtx && stCtx.contextUsage);
         scrollToBottom();
     }
 
@@ -228,7 +231,13 @@
                 renderError(msg.payload.message);
                 break;
             case 'context_usage':
-                updateContextBar(msg.payload);
+                var stCtx = agentState.get(agent);
+                if (stCtx) {
+                    stCtx.contextUsage = msg.payload;
+                }
+                if (agent === currentAgent) {
+                    updateContextBar(msg.payload);
+                }
                 break;
             case 'new_session':
                 renderNewSession();
@@ -434,6 +443,17 @@
     }
 
     function updateContextBar(payload) {
+        if (!payload) {
+            var valueEl = document.getElementById('context-value');
+            var fillEl = document.getElementById('context-progress-fill');
+            if (valueEl) valueEl.textContent = '0 / 100K (0%)';
+            if (fillEl) {
+                fillEl.style.width = '0%';
+                fillEl.classList.remove('low', 'mid', 'high');
+                fillEl.classList.add('low');
+            }
+            return;
+        }
         const tokens = payload.tokens || 0;
         const limit = payload.limit || 1;
         const percent = payload.percent || 0;
@@ -644,15 +664,36 @@
     }
 
     if (agentSidebarToggleEl && agentSidebarEl) {
+        var SIDEBAR_COLLAPSED_KEY = 'coloop-agent-sidebar-collapsed';
+        // Restore saved state
+        if (localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true') {
+            agentSidebarEl.classList.add('collapsed');
+            agentSidebarToggleEl.textContent = '▶';
+            agentSidebarToggleEl.title = '展开';
+        }
+
         agentSidebarToggleEl.addEventListener('click', function() {
             var isCollapsed = agentSidebarEl.classList.contains('collapsed');
             if (isCollapsed) {
                 agentSidebarEl.classList.remove('collapsed');
                 agentSidebarToggleEl.textContent = '◀';
+                agentSidebarToggleEl.title = '收起';
+                localStorage.setItem(SIDEBAR_COLLAPSED_KEY, 'false');
             } else {
                 agentSidebarEl.classList.add('collapsed');
                 agentSidebarToggleEl.textContent = '▶';
+                agentSidebarToggleEl.title = '展开';
+                localStorage.setItem(SIDEBAR_COLLAPSED_KEY, 'true');
             }
+        });
+    }
+
+    // Bind click to existing agent items (e.g. 'main')
+    if (agentListEl) {
+        agentListEl.querySelectorAll('.agent-item').forEach(function(item) {
+            item.addEventListener('click', function() {
+                switchToAgent(item.dataset.agent);
+            });
         });
     }
 
