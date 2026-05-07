@@ -66,6 +66,7 @@ public class AgentService {
         AgentLoop agentLoop;
         boolean isRunning;
         String sessionId;
+        SubagentRegistry subagentRegistry;
     }
 
     public void startChat(String userMessage, WebSocketSession session) {
@@ -251,6 +252,7 @@ public class AgentService {
                         SubagentManagementCapability subagentCap =
                                 new SubagentManagementCapability(
                                         factory, subagentRegistry, subagentListener);
+                        ctx.subagentRegistry = subagentRegistry;
 
                         // Step 5: Add subagent composite, hook, interceptor
                         main.withComposite(subagentCap)
@@ -347,6 +349,21 @@ public class AgentService {
         } catch (Exception e) {
             System.err.println("Failed to send command list: " + e.getMessage());
         }
+    }
+
+    public void sendToSubagent(String targetAgent, String message, WebSocketSession session) {
+        SessionContext ctx = sessions.get(session.getId());
+        if (ctx == null || ctx.subagentRegistry == null) {
+            sendError(session, "Session not initialized or no subagents available");
+            return;
+        }
+        SubagentInstance inst = ctx.subagentRegistry.get(targetAgent);
+        if (inst == null || inst.agentLoop == null) {
+            sendError(session, "Subagent '" + targetAgent + "' not found");
+            return;
+        }
+        inst.agentLoop.injectUserMessage(message);
+        sendSystem(session, "Message sent to " + targetAgent);
     }
 
     private void sendError(WebSocketSession session, String message) {

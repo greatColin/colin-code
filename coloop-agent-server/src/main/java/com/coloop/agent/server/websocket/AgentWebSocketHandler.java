@@ -41,8 +41,13 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
 
             if ("chat".equals(action)) {
                 String userMessage = jsonNode.path("message").asText("");
+                String targetAgent = jsonNode.path("targetAgent").asText("");
                 if (!userMessage.isEmpty()) {
-                    agentService.startChat(userMessage, session);
+                    if (targetAgent.isEmpty() || "main".equals(targetAgent)) {
+                        agentService.startChat(userMessage, session);
+                    } else {
+                        agentService.sendToSubagent(targetAgent, userMessage, session);
+                    }
                 }
             } else if ("list_history".equals(action)) {
                 agentService.listHistory(session);
