@@ -39,3 +39,6 @@ target/
 .worktrees/
 /package.json
 /src/main/resources/coloop-agent-setting-test.json
+
+# Conversation history
+.history/
