@@ -28,6 +28,11 @@ body {
     --sidebar-icon-bg: #003300;
     --sidebar-icon-active-bg: #003300;
     --sidebar-scrollbar: #003300;
+    --sidebar-section-header-color: #6c6c6c;
+    --sidebar-section-header-hover-bg: #262626;
+    --sidebar-history-item-color: #bbbbbb;
+    --sidebar-history-item-hover-bg: #262626;
+    --sidebar-history-item-hover-color: #00ff00;
 }
 
 .app {

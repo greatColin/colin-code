@@ -27,6 +27,11 @@ body {
     --sidebar-icon-bg: #e5e7eb;
     --sidebar-icon-active-bg: #e5e7eb;
     --sidebar-scrollbar: #d1d5db;
+    --sidebar-section-header-color: #6b7280;
+    --sidebar-section-header-hover-bg: #e5e7eb;
+    --sidebar-history-item-color: #374151;
+    --sidebar-history-item-hover-bg: #e5e7eb;
+    --sidebar-history-item-hover-color: #111827;
 }
 
 .app {
