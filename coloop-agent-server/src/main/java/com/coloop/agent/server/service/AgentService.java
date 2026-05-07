@@ -20,6 +20,15 @@ import com.coloop.agent.runtime.CapabilityLoader;
 import com.coloop.agent.runtime.StandardCapability;
 import com.coloop.agent.runtime.config.AppConfig;
 import com.coloop.agent.core.command.Command;
+import com.coloop.agent.capability.message.StandardMessageBuilder;
+import com.coloop.agent.capability.subagent.SubagentEventListener;
+import com.coloop.agent.capability.subagent.SubagentInstance;
+import com.coloop.agent.capability.subagent.SubagentLoopFactory;
+import com.coloop.agent.capability.subagent.SubagentManagementCapability;
+import com.coloop.agent.capability.subagent.SubagentPromptPlugin;
+import com.coloop.agent.capability.subagent.SubagentRegistry;
+import com.coloop.agent.core.tool.Tool;
+import com.coloop.agent.server.hook.SubagentLoggingHook;
 import com.coloop.agent.server.hook.WebSocketLoggingHook;
 import com.coloop.agent.server.dto.WebSocketMessage;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -107,6 +116,8 @@ public class AgentService {
                         hook.setTaskService(taskCap.getTaskService());
 
                         CommandContext cmdCtx = new CommandContext(config, null);
+
+                        CommandInterceptor cmdInterceptor = new CommandInterceptor(cmdRegistry, cmdCtx);
                         cmdCtx.setAttribute("session", session);
                         cmdCtx.setAttribute("streamChunkSender", (java.util.function.Consumer<String>) chunk -> {
                             if (!session.isOpen()) return;
@@ -142,15 +153,9 @@ public class AgentService {
                                 System.err.println("Failed to send task update: " + e.getMessage());
                             }
                         });
-                        cmdCtx.setAttribute("resetSession", (Runnable) () -> {
-                            synchronized (ctx) {
-                                ctx.agentLoop = null;
-                            }
-                        });
 
-                        CommandInterceptor cmdInterceptor = new CommandInterceptor(cmdRegistry, cmdCtx);
-
-                        agentLoop = new CapabilityLoader()
+                        // Step 1-2: Collect parent tools snapshot first
+                        CapabilityLoader main = new CapabilityLoader()
                                 .withCapability(StandardCapability.EXEC_TOOL, config)
                                 .withCapability(StandardCapability.READ_FILE_TOOL, config)
                                 .withCapability(StandardCapability.WRITE_FILE_TOOL, config)
@@ -162,12 +167,79 @@ public class AgentService {
                                 .withCapability(StandardCapability.LOGGING_HOOK, config)
                                 .withCapability(StandardCapability.SUMMARY_PROMPT, config)
                                 .withCapability(StandardCapability.MCP_CLIENT, config)
-                                .withComposite(taskCap)
-                                // TODO: 恢复 Plan Mode 时取消注释 .withComposite(planCap)
-                                // .withComposite(planCap)
+                                .withComposite(taskCap);
+                        List<Tool> parentTools = main.snapshotTools();
+
+                        // Step 3: Factory closure holds parent tools, provider, config, session
+                        SubagentLoopFactory factory =
+                                (name, sysPrompt, toolNames) -> {
+                                    List<Tool> filtered;
+                                    if (toolNames == null) {
+                                        filtered = parentTools;
+                                    } else {
+                                        filtered = new ArrayList<>();
+                                        for (Tool t : parentTools) {
+                                            if (toolNames.contains(t.getName())) {
+                                                filtered.add(t);
+                                            }
+                                        }
+                                    }
+                                    SubagentLoggingHook subHook =
+                                            new SubagentLoggingHook(session, name);
+                                    SubagentPromptPlugin promptPlugin =
+                                            new SubagentPromptPlugin(sysPrompt);
+                                    StandardMessageBuilder subMb =
+                                            new StandardMessageBuilder(
+                                                    List.of(promptPlugin), config);
+                                    CapabilityLoader sub = new CapabilityLoader()
+                                            .withMessageBuilder(subMb)
+                                            .withHook(subHook);
+                                    for (Tool t : filtered) sub.withTool(t);
+                                    AgentLoop subLoop = sub.build(provider, config);
+                                    subHook.setAgentLoop(subLoop);
+                                    return subLoop;
+                                };
+
+                        // Step 4: Build SubagentManagementCapability with WS listener
+                        SubagentRegistry subagentRegistry = new SubagentRegistry();
+                        SubagentEventListener subagentListener = new SubagentEventListener() {
+                            @Override
+                            public void onCreated(SubagentInstance inst) {
+                                if (!session.isOpen()) return;
+                                try {
+                                    WebSocketMessage msg =
+                                            WebSocketMessage.subagentCreated(
+                                                    inst.name, inst.description, null);
+                                    String json = objectMapper.writeValueAsString(msg);
+                                    session.sendMessage(new TextMessage(json));
+                                } catch (Exception ex) {
+                                    System.err.println("Failed to send subagent_created: " + ex.getMessage());
+                                }
+                            }
+                            @Override
+                            public void onCleared(String name) {
+                                if (!session.isOpen()) return;
+                                try {
+                                    WebSocketMessage msg =
+                                            WebSocketMessage.subagentCleared(name);
+                                    String json = objectMapper.writeValueAsString(msg);
+                                    session.sendMessage(new TextMessage(json));
+                                } catch (Exception ex) {
+                                    System.err.println("Failed to send subagent_cleared: " + ex.getMessage());
+                                }
+                            }
+                        };
+                        SubagentManagementCapability subagentCap =
+                                new SubagentManagementCapability(
+                                        factory, subagentRegistry, subagentListener);
+
+                        // Step 5: Add subagent composite, hook, interceptor
+                        main.withComposite(subagentCap)
                                 .withHook(hook)
-                                .withInterceptor(cmdInterceptor)
-                                .build(provider, config);
+                                .withInterceptor(cmdInterceptor);
+
+                        // Step 6: Build
+                        agentLoop = main.build(provider, config);
 
                         hook.setAgentLoop(agentLoop);
 
