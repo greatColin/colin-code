@@ -226,6 +226,71 @@
             background: var(--sidebar-scrollbar, #d1cbe6);
             border-radius: 2px;
         }
+        .sidebar-sections {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-section {
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-section-header {
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--sidebar-section-header-color, #8b7aa0);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            user-select: none;
+            transition: background 0.15s ease;
+        }
+        .sidebar-section-header:hover {
+            background: var(--sidebar-section-header-hover-bg, #ede9f7);
+        }
+        .section-toggle {
+            font-size: 10px;
+            transition: transform 0.2s ease;
+        }
+        .sidebar-section.expanded .section-toggle {
+            transform: rotate(0deg);
+        }
+        .sidebar-section:not(.expanded) .section-toggle {
+            transform: rotate(-90deg);
+        }
+        .sidebar-section-body {
+            display: flex;
+            flex-direction: column;
+            padding: 0 8px 8px;
+            gap: 2px;
+        }
+        .sidebar-section-body.collapsed {
+            display: none;
+        }
+        .history-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            line-height: 1.4;
+            color: var(--sidebar-history-item-color, #555);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .history-item:hover {
+            background: var(--sidebar-history-item-hover-bg, #ede9f7);
+            color: var(--sidebar-history-item-hover-color, #4a306d);
+        }
         .main-content {
             flex: 1;
             display: flex;
@@ -239,13 +304,29 @@
     <div class="app">
         <aside class="agent-sidebar" id="agent-sidebar">
             <div class="agent-sidebar-header">
-                <span class="agent-sidebar-title">Agents</span>
+                <span class="agent-sidebar-title">coloop</span>
                 <span class="agent-sidebar-toggle" id="agent-sidebar-toggle" title="收起/展开">◀</span>
             </div>
-            <div class="agent-list" id="agent-list">
-                <div class="agent-item active" data-agent="main">
-                    <span class="agent-icon">⭐</span>
-                    <span class="agent-name">main</span>
+            <div class="sidebar-sections">
+                <div class="sidebar-section expanded" data-section="current">
+                    <div class="sidebar-section-header">
+                        <span class="section-toggle">▼</span>
+                        <span class="section-title">当前会话</span>
+                    </div>
+                    <div class="sidebar-section-body" id="current-session-list">
+                        <div class="agent-item active" data-agent="main">
+                            <span class="agent-icon">⭐</span>
+                            <span class="agent-name">main</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="sidebar-section" data-section="history">
+                    <div class="sidebar-section-header" id="history-section-header">
+                        <span class="section-toggle">▶</span>
+                        <span class="section-title">历史记录</span>
+                    </div>
+                    <div class="sidebar-section-body collapsed" id="history-list">
+                    </div>
                 </div>
             </div>
         </aside>
