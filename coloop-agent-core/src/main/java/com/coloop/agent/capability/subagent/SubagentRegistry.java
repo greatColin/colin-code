@@ -58,14 +58,17 @@ public final class SubagentRegistry {
 
     /**
      * Remove all subagents, firing {@link SubagentEventListener#onCleared(String)}
-     * for each removed entry.
+     * for each removed entry. Synchronized with {@link #createOrReplace}
+     * to prevent lost events under concurrent use.
      */
     public void clear() {
-        List<String> names = new ArrayList<>(map.keySet());
-        map.clear();
-        for (String name : names) {
-            for (SubagentEventListener l : listeners) {
-                l.onCleared(name);
+        synchronized (this) {
+            List<String> names = new ArrayList<>(map.keySet());
+            map.clear();
+            for (String name : names) {
+                for (SubagentEventListener l : listeners) {
+                    l.onCleared(name);
+                }
             }
         }
     }

@@ -9,7 +9,7 @@ package com.coloop.agent.capability.subagent;
  *
  * <p>Lifecycle order: {@link #onCreated(SubagentInstance)} fires when a
  * new subagent is registered (including replacements); {@link #onCleared(String)}
- * fires when a subagent is removed by name (clear, replace, or explicit remove).</p>
+ * fires when a subagent is removed via clear or replace (not plain remove).</p>
  */
 public interface SubagentEventListener {
 
