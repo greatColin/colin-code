@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.InputStream;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.json.JsonReadFeature;
 
 public class McpCapabilityIntegrationTest {
 
@@ -14,7 +15,8 @@ public class McpCapabilityIntegrationTest {
         InputStream is = getClass().getResourceAsStream("/coloop-agent-setting.json");
         assertNotNull(is, "coloop-agent-setting.json should be in classpath");
 
-        ObjectMapper mapper = new ObjectMapper();
+        ObjectMapper mapper = new ObjectMapper()
+            .enable(JsonReadFeature.ALLOW_JAVA_COMMENTS.mappedFeature());
         var root = mapper.readTree(is);
         assertNotNull(root.get("mcpServers"));
         assertNotNull(root.get("models"));
