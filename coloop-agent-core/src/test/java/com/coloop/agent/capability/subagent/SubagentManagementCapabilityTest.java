@@ -1,6 +1,7 @@
 package com.coloop.agent.capability.subagent;
 
 import com.coloop.agent.runtime.CompositeCapability;
+import com.coloop.agent.runtime.config.AppConfig;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -10,25 +11,26 @@ class SubagentManagementCapabilityTest {
     void testImplementsCompositeCapability() {
         SubagentRegistry registry = new SubagentRegistry();
         SubagentManagementCapability cap = new SubagentManagementCapability(
-            (name, sp, tn, mk) -> null, registry, null);
+            (name, sp, tn, mk) -> null, registry, null, new AppConfig());
         assertTrue(cap instanceof CompositeCapability);
     }
 
     @Test
-    void testGetToolsReturnsAgentAndSendMessage() {
+    void testGetToolsReturnsAllThree() {
         SubagentRegistry registry = new SubagentRegistry();
         SubagentManagementCapability cap = new SubagentManagementCapability(
-            (name, sp, tn, mk) -> null, registry, null);
-        assertEquals(2, cap.getTools().size());
+            (name, sp, tn, mk) -> null, registry, null, new AppConfig());
+        assertEquals(3, cap.getTools().size());
         assertEquals("Agent", cap.getTools().get(0).getName());
         assertEquals("SendMessage", cap.getTools().get(1).getName());
+        assertEquals("ListModels", cap.getTools().get(2).getName());
     }
 
     @Test
     void testGetPromptPluginReturnsNull() {
         SubagentRegistry registry = new SubagentRegistry();
         SubagentManagementCapability cap = new SubagentManagementCapability(
-            (name, sp, tn, mk) -> null, registry, null);
+            (name, sp, tn, mk) -> null, registry, null, new AppConfig());
         assertNull(cap.getPromptPlugin());
     }
 
@@ -36,7 +38,7 @@ class SubagentManagementCapabilityTest {
     void testGetHookReturnsNull() {
         SubagentRegistry registry = new SubagentRegistry();
         SubagentManagementCapability cap = new SubagentManagementCapability(
-            (name, sp, tn, mk) -> null, registry, null);
+            (name, sp, tn, mk) -> null, registry, null, new AppConfig());
         assertNull(cap.getHook());
     }
 
@@ -44,7 +46,7 @@ class SubagentManagementCapabilityTest {
     void testGetRegistryReturnsSameInstance() {
         SubagentRegistry registry = new SubagentRegistry();
         SubagentManagementCapability cap = new SubagentManagementCapability(
-            (name, sp, tn, mk) -> null, registry, null);
+            (name, sp, tn, mk) -> null, registry, null, new AppConfig());
         assertSame(registry, cap.getRegistry());
     }
 }
