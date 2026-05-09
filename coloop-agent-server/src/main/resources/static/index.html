@@ -291,6 +291,62 @@
             background: var(--sidebar-history-item-hover-bg, #ede9f7);
             color: var(--sidebar-history-item-hover-color, #4a306d);
         }
+
+        /* === Task Sidebar === */
+        .task-empty {
+            padding: 12px;
+            font-size: 12px;
+            color: var(--sidebar-section-header-color, #8b7aa0);
+            text-align: center;
+        }
+        .task-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            line-height: 1.4;
+            cursor: default;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        .task-item:hover {
+            background: var(--sidebar-item-hover-bg, #ede9f7);
+        }
+        .task-status-icon {
+            flex-shrink: 0;
+            font-size: 13px;
+        }
+        .task-subject {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .task-in-progress {
+            color: var(--sidebar-item-active-color, #4a306d);
+            font-weight: 500;
+            background: var(--sidebar-item-active-bg, #f0ebfa);
+        }
+        .task-pending {
+            color: var(--sidebar-item-color, #555);
+        }
+        .task-completed {
+            color: var(--sidebar-section-header-color, #8b7aa0);
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+        .task-count-badge {
+            font-size: 10px;
+            font-weight: 600;
+            color: #fff;
+            background: var(--sidebar-item-active-border, #8b5cf6);
+            padding: 1px 6px;
+            border-radius: 8px;
+            margin-left: auto;
+        }
+
         .main-content {
             flex: 1;
             display: flex;
@@ -713,6 +769,16 @@
                 <span class="agent-sidebar-toggle" id="agent-sidebar-toggle" title="收起/展开">◀</span>
             </div>
             <div class="sidebar-sections">
+                <div class="sidebar-section expanded" data-section="tasks">
+                    <div class="sidebar-section-header">
+                        <span class="section-toggle">▼</span>
+                        <span class="section-title">任务</span>
+                        <span class="task-count-badge" id="task-count-badge"></span>
+                    </div>
+                    <div class="sidebar-section-body" id="task-list-container">
+                        <div class="task-empty">暂无任务</div>
+                    </div>
+                </div>
                 <div class="sidebar-section expanded" data-section="current">
                     <div class="sidebar-section-header">
                         <span class="section-toggle">▼</span>

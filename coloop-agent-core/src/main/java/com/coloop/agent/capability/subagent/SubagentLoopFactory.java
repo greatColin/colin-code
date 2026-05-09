@@ -13,7 +13,8 @@ public interface SubagentLoopFactory {
      * @param name        subagent name (passed to SubagentLoggingHook)
      * @param systemPrompt system prompt for this subagent
      * @param toolNames   tool name whitelist; null means inherit all parent tools
+     * @param modelKey    model config key from AppConfig; null means use main agent's provider
      * @return configured AgentLoop ready for chatStream()
      */
-    AgentLoop create(String name, String systemPrompt, List<String> toolNames);
+    AgentLoop create(String name, String systemPrompt, List<String> toolNames, String modelKey);
 }

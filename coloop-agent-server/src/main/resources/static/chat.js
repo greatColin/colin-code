@@ -265,9 +265,11 @@
                 availableCommands = (msg.payload && msg.payload.commands) || [];
                 break;
             case 'task_list':
+                handleTaskList(msg.payload && msg.payload.tasks);
+                return;
             case 'task_update':
-                // No-op: task sidebar removed, keep as defensive stub
-                break;
+                handleTaskUpdate(msg.payload);
+                return;
         }
         scrollToBottom();
     }
@@ -708,6 +710,85 @@
 
     function escapeHtml(str) {
         return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // --- Task sidebar rendering ---
+    const taskListContainerEl = document.getElementById('task-list-container');
+    const taskCountBadgeEl = document.getElementById('task-count-badge');
+
+    function getStatusIcon(status) {
+        switch (status) {
+            case 'in_progress': return '⏳';
+            case 'pending': return '⏸';
+            case 'completed': return '✅';
+            default: return '•';
+        }
+    }
+
+    function getStatusClass(status) {
+        switch (status) {
+            case 'in_progress': return 'task-in-progress';
+            case 'pending': return 'task-pending';
+            case 'completed': return 'task-completed';
+            default: return 'task-pending';
+        }
+    }
+
+    function handleTaskList(tasks) {
+        if (!taskListContainerEl) return;
+        taskListContainerEl.innerHTML = '';
+
+        if (!tasks || tasks.length === 0) {
+            var empty = document.createElement('div');
+            empty.className = 'task-empty';
+            empty.textContent = '暂无任务';
+            taskListContainerEl.appendChild(empty);
+            if (taskCountBadgeEl) taskCountBadgeEl.textContent = '';
+            return;
+        }
+
+        // Sort: IN_PROGRESS first, then PENDING, then COMPLETED
+        var order = { in_progress: 0, pending: 1, completed: 2 };
+        tasks.sort(function(a, b) {
+            return (order[a.status] || 0) - (order[b.status] || 0);
+        });
+
+        tasks.forEach(function(task) {
+            var el = document.createElement('div');
+            el.className = 'task-item ' + getStatusClass(task.status);
+            el.dataset.taskId = task.id;
+            el.innerHTML = '<span class="task-status-icon">' + getStatusIcon(task.status) + '</span>' +
+                '<span class="task-subject">' + escapeHtml(task.description || task.subject || '') + '</span>';
+            taskListContainerEl.appendChild(el);
+        });
+
+        if (taskCountBadgeEl) {
+            var activeCount = tasks.filter(function(t) { return t.status !== 'completed'; }).length;
+            taskCountBadgeEl.textContent = activeCount > 0 ? String(activeCount) : '';
+        }
+    }
+
+    function handleTaskUpdate(payload) {
+        if (!taskListContainerEl || !payload) return;
+        var id = payload.id;
+        var status = (payload.status || '').toLowerCase();
+        var desc = payload.description || '';
+
+        var existing = taskListContainerEl.querySelector('[data-task-id="' + id + '"]');
+        if (existing) {
+            existing.className = 'task-item ' + getStatusClass(status);
+            existing.innerHTML = '<span class="task-status-icon">' + getStatusIcon(status) + '</span>' +
+                '<span class="task-subject">' + escapeHtml(desc) + '</span>';
+        }
+        // Update badge count
+        if (taskCountBadgeEl) {
+            var visibleTasks = taskListContainerEl.querySelectorAll('.task-item');
+            var activeCount = 0;
+            visibleTasks.forEach(function(el) {
+                if (!el.classList.contains('task-completed')) activeCount++;
+            });
+            taskCountBadgeEl.textContent = activeCount > 0 ? String(activeCount) : '';
+        }
     }
 
     if (agentSidebarToggleEl && agentSidebarEl) {

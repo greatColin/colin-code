@@ -10,7 +10,8 @@ import java.util.stream.Collectors;
 
 public class AgentTool extends BaseTool {
 
-    private static final java.util.Set<String> FORBIDDEN_TOOLS = java.util.Set.of("Agent", "SendMessage");
+    private static final java.util.Set<String> FORBIDDEN_TOOLS = java.util.Set.of(
+            "Agent", "SendMessage", "task_create", "task_update", "task_list", "task_get");
 
     private final SubagentRegistry registry;
     private final SubagentLoopFactory factory;
@@ -43,7 +44,7 @@ public class AgentTool extends BaseTool {
         props.put("tool_names", Map.of(
             "type", "array",
             "items", Map.of("type", "string"),
-            "description", "Tool name whitelist; omit for default parent toolset minus Agent/SendMessage."
+            "description", "Tool name whitelist; omit for default parent toolset minus Agent/SendMessage/task tools."
         ));
         props.put("return_thinking", Map.of(
             "type", "boolean",
@@ -87,7 +88,7 @@ public class AgentTool extends BaseTool {
         boolean returnThinking = Boolean.TRUE.equals(params.get("return_thinking"));
 
         try {
-            AgentLoop subLoop = factory.create(name, systemPrompt, toolNames);
+            AgentLoop subLoop = factory.create(name, systemPrompt, toolNames, null);
             SubagentInstance instance = new SubagentInstance(name, description, systemPrompt, toolNames, subLoop, returnThinking);
 
             synchronized (instance.runLock) {

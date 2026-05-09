@@ -191,16 +191,16 @@ public class AgentService {
 
                         // Step 3: Factory closure holds parent tools, provider, config, session
                         SubagentLoopFactory factory =
-                                (name, sysPrompt, toolNames) -> {
-                                    List<Tool> filtered;
-                                    if (toolNames == null) {
-                                        filtered = parentTools;
-                                    } else {
-                                        filtered = new ArrayList<>();
-                                        for (Tool t : parentTools) {
-                                            if (toolNames.contains(t.getName())) {
-                                                filtered.add(t);
-                                            }
+                                (name, sysPrompt, toolNames, modelKey) -> {
+                                    java.util.Set<String> forbidden = java.util.Set.of(
+                                            "Agent", "SendMessage", "task_create", "task_update", "task_list", "task_get");
+                                    List<Tool> filtered = new ArrayList<>();
+                                    for (Tool t : parentTools) {
+                                        if (forbidden.contains(t.getName())) {
+                                            continue;
+                                        }
+                                        if (toolNames == null || toolNames.contains(t.getName())) {
+                                            filtered.add(t);
                                         }
                                     }
                                     SubagentLoggingHook subHook =

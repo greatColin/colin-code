@@ -18,27 +18,59 @@ public class TaskDisplayHook implements AgentHook {
 
     @Override
     public void onToolCall(ToolCallRequest toolCall, String result, String formattedArgs) {
-        if (!toolCall.getName().startsWith("task_")) {
-            return;
-        }
-
-        List<Task> active = taskService.list().stream()
-                .filter(t -> t.getStatus() == TaskStatus.IN_PROGRESS || t.getStatus() == TaskStatus.PENDING)
+        List<Task> tasks = taskService.list();
+        List<Task> active = tasks.stream()
+                .filter(t -> t.getStatus() != TaskStatus.DELETED)
                 .toList();
 
         if (active.isEmpty()) {
             return;
         }
 
-        Task inProgress = active.stream()
-                .filter(t -> t.getStatus() == TaskStatus.IN_PROGRESS)
-                .findFirst()
-                .orElse(null);
+        long inProgressCount = active.stream().filter(t -> t.getStatus() == TaskStatus.IN_PROGRESS).count();
+        long pendingCount = active.stream().filter(t -> t.getStatus() == TaskStatus.PENDING).count();
+        long completedCount = active.stream().filter(t -> t.getStatus() == TaskStatus.COMPLETED).count();
 
-        if (inProgress != null) {
-            String line = AnsiColors.label("TASK", AnsiColors.TASK_COLOR,
-                    inProgress.getId() + " " + inProgress.getSubject() + " -> IN_PROGRESS",
-                    AnsiColors.FG_WHITE);
+        StringBuilder sb = new StringBuilder();
+        sb.append(AnsiColors.colorize("[TASKS] ", AnsiColors.FG_CYAN));
+        sb.append(AnsiColors.colorize(String.valueOf(active.size()), AnsiColors.FG_WHITE));
+        sb.append(" active (");
+        sb.append(AnsiColors.colorize(String.valueOf(inProgressCount), AnsiColors.FG_YELLOW));
+        sb.append(" in_progress, ");
+        sb.append(AnsiColors.colorize(String.valueOf(pendingCount), AnsiColors.FG_WHITE));
+        sb.append(" pending");
+        if (completedCount > 0) {
+            sb.append(", ");
+            sb.append(AnsiColors.colorize(String.valueOf(completedCount), AnsiColors.FG_GREEN));
+            sb.append(" completed");
+        }
+        sb.append(")");
+        System.out.println(sb);
+
+        for (Task task : active) {
+            String icon;
+            String color;
+            switch (task.getStatus()) {
+                case IN_PROGRESS -> {
+                    icon = "⏳";
+                    color = AnsiColors.FG_YELLOW;
+                }
+                case PENDING -> {
+                    icon = "⏸";
+                    color = AnsiColors.FG_WHITE;
+                }
+                case COMPLETED -> {
+                    icon = "✅";
+                    color = AnsiColors.FG_GREEN;
+                }
+                default -> {
+                    icon = "?";
+                    color = AnsiColors.FG_WHITE;
+                }
+            }
+            String line = "  " + icon + " "
+                    + task.getId() + "  "
+                    + AnsiColors.colorize(task.getSubject(), color);
             System.out.println(line);
         }
     }

@@ -49,15 +49,16 @@ public class TaskStatusPromptPlugin implements PromptPlugin {
         // 规则5：用 blocked_by 表达步骤之间的依赖关系
         // 规则6：强调频繁使用，先规划再执行能避免错误
         sb.append("MANDATORY RULES — you MUST follow these:\n");
-        sb.append("1. For ANY request involving multiple steps, files, tools, or research, ");
+        sb.append("1. For ANY request involving 3 or more steps, multiple files, research, or tools, ");
         sb.append("   create a task list using task_create BEFORE taking any action.\n");
-        sb.append("2. Break complex work into small, concrete tasks (one task per file or step).\n");
-        sb.append("3. After completing each step, update the task status to COMPLETED via task_update.\n");
-        sb.append("4. Only ONE task may be IN_PROGRESS at a time.\n");
-        sb.append("5. Use blocked_by to express dependencies between steps.\n");
-        sb.append("6. You MUST use these tools VERY frequently. Planning first prevents mistakes.\n");
-        sb.append("7. NEVER list tasks in plain text — ALWAYS use task_create tool to create them.\n");
-        sb.append("8. The user can see your task progress in a sidebar — keep it updated.\n\n");
+        sb.append("2. Do NOT create tasks for simple one-step requests (e.g., a single file read or a direct answer).\n");
+        sb.append("3. Break complex work into small, concrete tasks (one task per file or step).\n");
+        sb.append("4. After completing each step, update the task status to COMPLETED via task_update.\n");
+        sb.append("5. Only ONE task may be IN_PROGRESS at a time.\n");
+        sb.append("6. Use blocked_by to express dependencies between steps.\n");
+        sb.append("7. You MUST use these tools VERY frequently. Planning first prevents mistakes.\n");
+        sb.append("8. NEVER list tasks in plain text — ALWAYS use task_create tool to create them.\n");
+        sb.append("9. The user can see your task progress in a sidebar — keep it updated.\n\n");
 
         // 动态状态段：注入当前任务列表，让 LLM 知道进度
         // 没任务时也要显示提示，提醒 LLM 该创建任务了

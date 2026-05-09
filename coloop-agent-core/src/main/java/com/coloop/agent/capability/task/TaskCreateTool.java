@@ -22,10 +22,11 @@ public class TaskCreateTool extends BaseTool {
 
     @Override
     public String getDescription() {
-        return "Create tasks to track multi-step work. You MUST use this tool VERY frequently. " +
-               "Before starting ANY task that involves multiple files, tools, research, or steps, " +
-               "create a task list first. Break complex work into small concrete steps. " +
-               "This keeps the user informed and prevents mistakes.";
+        return "Create tasks to track multi-step work. You MUST use this tool when a task involves " +
+               "3 or more steps, multiple files, or research. Before starting ANY complex task, " +
+               "create a task list first. Break complex work into small concrete steps " +
+               "(one per file or logical unit). Examples: adding features, refactoring, " +
+               "bug fixes across files, multi-step research. This keeps the user informed and prevents mistakes.";
     }
 
     @Override
