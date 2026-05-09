@@ -172,7 +172,28 @@ public class AgentService {
 
                         // Step 3: Factory closure holds parent tools, provider, config, session
                         SubagentLoopFactory factory =
-                                (name, sysPrompt, toolNames) -> {
+                                (name, sysPrompt, toolNames, modelKey) -> {
+                                    LLMProvider subProvider = provider;  // default: use main agent's provider
+                                    if (modelKey != null && !modelKey.isEmpty()) {
+                                        AppConfig.ModelConfig mc = config.getModelConfig(modelKey);
+                                        if (mc != null) {
+                                            subProvider = new OpenAICompatibleProvider(mc);
+                                        } else {
+                                            // Fallback: send toast notification
+                                            try {
+                                                if (session.isOpen()) {
+                                                    WebSocketMessage toast = WebSocketMessage.toast(
+                                                        "Model '" + modelKey + "' not found in config. Using default model.",
+                                                        5000
+                                                    );
+                                                    String json = objectMapper.writeValueAsString(toast);
+                                                    session.sendMessage(new TextMessage(json));
+                                                }
+                                            } catch (Exception ex) {
+                                                System.err.println("Failed to send toast: " + ex.getMessage());
+                                            }
+                                        }
+                                    }
                                     List<Tool> filtered;
                                     if (toolNames == null) {
                                         filtered = parentTools;
@@ -195,7 +216,7 @@ public class AgentService {
                                             .withMessageBuilder(subMb)
                                             .withHook(subHook);
                                     for (Tool t : filtered) sub.withTool(t);
-                                    AgentLoop subLoop = sub.build(provider, config);
+                                    AgentLoop subLoop = sub.build(subProvider, config);
                                     subHook.setAgentLoop(subLoop);
                                     return subLoop;
                                 };
@@ -231,7 +252,7 @@ public class AgentService {
                         };
                         SubagentManagementCapability subagentCap =
                                 new SubagentManagementCapability(
-                                        factory, subagentRegistry, subagentListener);
+                                        factory, subagentRegistry, subagentListener, config);
 
                         // Step 5: Add subagent composite, hook, interceptor
                         main.withComposite(subagentCap)
