@@ -1,4 +1,4 @@
-﻿package com.coloop.agent.capability.subagent;
+package com.coloop.agent.capability.subagent;
 
 import com.coloop.agent.core.agent.AgentLoop;
 import java.util.List;

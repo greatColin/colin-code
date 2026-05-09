@@ -49,6 +49,10 @@ public class AgentTool extends BaseTool {
             "type", "boolean",
             "description", "Whether to include <think> blocks in the result returned to the parent agent. Default false."
         ));
+        props.put("model", Map.of(
+            "type", "string",
+            "description", "Model config key (e.g. 'minimax', 'glm-4-free'). Omit to use the main agent's model."
+        ));
 
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("type", "object");
@@ -85,9 +89,10 @@ public class AgentTool extends BaseTool {
         // Default false because reasoning content is usually noise for the parent;
         // WebSocket thinking events are still sent to the frontend regardless.
         boolean returnThinking = Boolean.TRUE.equals(params.get("return_thinking"));
+        String modelKey = getStringParam(params, "model");
 
         try {
-            AgentLoop subLoop = factory.create(name, systemPrompt, toolNames);
+            AgentLoop subLoop = factory.create(name, systemPrompt, toolNames, modelKey);
             SubagentInstance instance = new SubagentInstance(name, description, systemPrompt, toolNames, subLoop, returnThinking);
 
             synchronized (instance.runLock) {

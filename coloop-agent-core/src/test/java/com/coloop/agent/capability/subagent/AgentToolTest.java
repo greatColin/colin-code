@@ -30,20 +30,20 @@ class AgentToolTest {
 
     @Test
     void testGetNameReturnsAgent() {
-        AgentTool tool = new AgentTool(registry, (name, sp, tn) -> null);
+        AgentTool tool = new AgentTool(registry, (name, sp, tn, mk) -> null);
         assertEquals("Agent", tool.getName());
     }
 
     @Test
     void testGetDescriptionIsNonEmpty() {
-        AgentTool tool = new AgentTool(registry, (name, sp, tn) -> null);
+        AgentTool tool = new AgentTool(registry, (name, sp, tn, mk) -> null);
         assertNotNull(tool.getDescription());
         assertFalse(tool.getDescription().isEmpty());
     }
 
     @Test
     void testParametersIncludeRequiredFields() {
-        AgentTool tool = new AgentTool(registry, (name, sp, tn) -> null);
+        AgentTool tool = new AgentTool(registry, (name, sp, tn, mk) -> null);
         Map<String, Object> params = tool.getParameters();
         assertTrue(params.containsKey("properties"));
         @SuppressWarnings("unchecked")
@@ -57,35 +57,35 @@ class AgentToolTest {
 
     @Test
     void testMissingNameReturnsError() {
-        AgentTool tool = new AgentTool(registry, (name, sp, tn) -> null);
+        AgentTool tool = new AgentTool(registry, (name, sp, tn, mk) -> null);
         String result = tool.execute(Map.of("description", "d", "system_prompt", "sp", "prompt", "p"));
         assertTrue(result.startsWith("Error: missing required field 'name'"));
     }
 
     @Test
     void testMissingDescriptionReturnsError() {
-        AgentTool tool = new AgentTool(registry, (name, sp, tn) -> null);
+        AgentTool tool = new AgentTool(registry, (name, sp, tn, mk) -> null);
         String result = tool.execute(Map.of("name", "n", "system_prompt", "sp", "prompt", "p"));
         assertTrue(result.startsWith("Error: missing required field 'description'"));
     }
 
     @Test
     void testMissingSystemPromptReturnsError() {
-        AgentTool tool = new AgentTool(registry, (name, sp, tn) -> null);
+        AgentTool tool = new AgentTool(registry, (name, sp, tn, mk) -> null);
         String result = tool.execute(Map.of("name", "n", "description", "d", "prompt", "p"));
         assertTrue(result.startsWith("Error: missing required field 'system_prompt'"));
     }
 
     @Test
     void testMissingPromptReturnsError() {
-        AgentTool tool = new AgentTool(registry, (name, sp, tn) -> null);
+        AgentTool tool = new AgentTool(registry, (name, sp, tn, mk) -> null);
         String result = tool.execute(Map.of("name", "n", "description", "d", "system_prompt", "sp"));
         assertTrue(result.startsWith("Error: missing required field 'prompt'"));
     }
 
     @Test
     void testEmptyStringTreatedAsMissing() {
-        AgentTool tool = new AgentTool(registry, (name, sp, tn) -> null);
+        AgentTool tool = new AgentTool(registry, (name, sp, tn, mk) -> null);
         String result = tool.execute(Map.of(
             "name", "", "description", "d", "system_prompt", "sp", "prompt", "p"));
         assertTrue(result.startsWith("Error: missing required field 'name'"));
@@ -94,7 +94,7 @@ class AgentToolTest {
     @Test
     void testCreatesSubagentAndReturnsResponse() throws IOException {
         // Build a trivial subagent loop that returns a fixed response
-        SubagentLoopFactory factory = (name, sp, tn) -> {
+        SubagentLoopFactory factory = (name, sp, tn, mk) -> {
             MockProvider provider = new MockProvider(
                 List.of(new LLMResponse() {{ setContent("I am a subagent response."); }})
             );
@@ -119,7 +119,7 @@ class AgentToolTest {
 
     @Test
     void testSameNameReplacesOldInstance() throws IOException {
-        SubagentLoopFactory factory = (name, sp, tn) -> {
+        SubagentLoopFactory factory = (name, sp, tn, mk) -> {
             MockProvider provider = new MockProvider(
                 List.of(new LLMResponse() {{ setContent("response"); }})
             );
@@ -149,7 +149,7 @@ class AgentToolTest {
     void testAgentAndSendMessageStripedFromToolNames() throws IOException {
         // Create a tool that reports what toolNames the factory received
         final List<String>[] capturedNames = new List[1];
-        SubagentLoopFactory factory = (name, sp, tn) -> {
+        SubagentLoopFactory factory = (name, sp, tn, mk) -> {
             capturedNames[0] = tn;
             MockProvider provider = new MockProvider(
                 List.of(new LLMResponse() {{ setContent("ok"); }})
@@ -177,7 +177,7 @@ class AgentToolTest {
     @Test
     void testToolNamesNullPassesNullToFactory() throws IOException {
         final List<String>[] capturedNames = new List[1];
-        SubagentLoopFactory factory = (name, sp, tn) -> {
+        SubagentLoopFactory factory = (name, sp, tn, mk) -> {
             capturedNames[0] = tn;
             MockProvider provider = new MockProvider(
                 List.of(new LLMResponse() {{ setContent("ok"); }})
@@ -195,5 +195,52 @@ class AgentToolTest {
         ));
 
         assertNull(capturedNames[0]); // null means "use all parent tools"
+    }
+
+    @Test
+    void testModelParameterPassedToFactory() throws IOException {
+        final String[] capturedModel = new String[1];
+        SubagentLoopFactory factory = (name, sp, tn, mk) -> {
+            capturedModel[0] = mk;
+            MockProvider provider = new MockProvider(
+                List.of(new LLMResponse() {{ setContent("ok"); }})
+            );
+            StandardMessageBuilder mb = new StandardMessageBuilder(
+                List.of(new SubagentPromptPlugin(sp)), config);
+            return new AgentLoop(provider, new ToolRegistry(), mb,
+                Collections.emptyList(), Collections.emptyList(), config);
+        };
+
+        AgentTool tool = new AgentTool(registry, factory);
+        tool.execute(Map.of(
+            "name", "m", "description", "d",
+            "system_prompt", "sp", "prompt", "p",
+            "model", "minimax"
+        ));
+
+        assertEquals("minimax", capturedModel[0]);
+    }
+
+    @Test
+    void testNullModelWhenOmitted() throws IOException {
+        final String[] capturedModel = new String[1];
+        SubagentLoopFactory factory = (name, sp, tn, mk) -> {
+            capturedModel[0] = mk;
+            MockProvider provider = new MockProvider(
+                List.of(new LLMResponse() {{ setContent("ok"); }})
+            );
+            StandardMessageBuilder mb = new StandardMessageBuilder(
+                List.of(new SubagentPromptPlugin(sp)), config);
+            return new AgentLoop(provider, new ToolRegistry(), mb,
+                Collections.emptyList(), Collections.emptyList(), config);
+        };
+
+        AgentTool tool = new AgentTool(registry, factory);
+        tool.execute(Map.of(
+            "name", "m", "description", "d",
+            "system_prompt", "sp", "prompt", "p"
+        ));
+
+        assertNull(capturedModel[0]);
     }
 }
