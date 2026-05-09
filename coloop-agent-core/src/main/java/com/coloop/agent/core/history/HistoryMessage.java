@@ -20,6 +20,10 @@ public class HistoryMessage {
     public String message;
     public String reasoning;
 
+    public Integer tokens;
+    public Integer limit;
+    public Integer percent;
+
     public HistoryMessage() {}
 
     public static HistoryMessage user(String agent, String content) {
@@ -95,6 +99,17 @@ public class HistoryMessage {
         m.type = "subagent_created";
         m.agent = agent;
         m.description = description;
+        m.timestamp = System.currentTimeMillis();
+        return m;
+    }
+
+    public static HistoryMessage contextUsage(String agent, int tokens, int limit, int percent) {
+        HistoryMessage m = new HistoryMessage();
+        m.type = "context_usage";
+        m.agent = agent;
+        m.tokens = tokens;
+        m.limit = limit;
+        m.percent = percent;
         m.timestamp = System.currentTimeMillis();
         return m;
     }

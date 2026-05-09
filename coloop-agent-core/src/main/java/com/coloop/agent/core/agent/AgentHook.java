@@ -61,4 +61,7 @@ public interface AgentHook {
 
     /** 在 LLM 流式生成过程中，每收到一个内容块时调用。 */
     default void onStreamChunk(String chunk) {}
+
+    /** 在上下文占用信息更新时调用（beforeLLMCall 后和 onLoopEnd 后）。 */
+    default void onContextUsage(int tokens, int limit, int percent) {}
 }

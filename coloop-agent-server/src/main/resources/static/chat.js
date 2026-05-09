@@ -253,12 +253,13 @@
                 break;
             case 'new_session':
                 renderNewSession();
+                updateSessionTitle('coloop-agent Web');
                 break;
             case 'history_list':
                 renderHistoryList(msg.payload && msg.payload.sessions);
                 return;
             case 'session_loaded':
-                renderSystem('Loaded session: ' + (msg.payload.title || msg.payload.sessionId));
+                updateSessionTitle(msg.payload.title || msg.payload.sessionId);
                 return;
             case 'commands':
                 availableCommands = (msg.payload && msg.payload.commands) || [];
@@ -458,6 +459,13 @@
         card.appendChild(preview);
         card.appendChild(body);
         insertBeforeAssistant(agentName, card);
+    }
+
+    function updateSessionTitle(title) {
+        var singleTitle = document.getElementById('session-title');
+        var combinedTitle = document.getElementById('session-title-combined');
+        if (singleTitle) singleTitle.textContent = title || 'coloop-agent Web';
+        if (combinedTitle) combinedTitle.textContent = title || 'coloop-agent Web';
     }
 
     function updateContextBar(payload) {

@@ -55,13 +55,11 @@ public class WebSocketLoggingHook extends AbstractWebSocketLoggingHook {
     public void beforeLLMCall(List<Map<String, Object>> messages) {
         int current = loopCount.incrementAndGet();
         send(WebSocketMessage.loopStart(current));
-        if (agentLoop != null) {
-            send(WebSocketMessage.contextUsage(
-                agentLoop.getCurrentTokenCount(),
-                agentLoop.getContextLimit(),
-                agentLoop.getContextUsagePercent()
-            ));
-        }
+    }
+
+    @Override
+    public void onContextUsage(int tokens, int limit, int percent) {
+        send(WebSocketMessage.contextUsage(tokens, limit, percent));
     }
 
     @Override
@@ -95,14 +93,6 @@ public class WebSocketLoggingHook extends AbstractWebSocketLoggingHook {
             send(WebSocketMessage.system(finalResponse));
         } else {
             send(WebSocketMessage.assistant(finalResponse));
-        }
-        // 消息历史已更新（addAssistantMessage 在 onLoopEnd 前执行），同步最新上下文占用
-        if (agentLoop != null) {
-            send(WebSocketMessage.contextUsage(
-                agentLoop.getCurrentTokenCount(),
-                agentLoop.getContextLimit(),
-                agentLoop.getContextUsagePercent()
-            ));
         }
         completePlanTasks();
     }

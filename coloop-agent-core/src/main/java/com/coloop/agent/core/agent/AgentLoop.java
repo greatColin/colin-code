@@ -109,6 +109,12 @@ public class AgentLoop {
             for (AgentHook h : hooks) {
                 h.beforeLLMCall(messages);
             }
+            int ctxTokens = getCurrentTokenCount();
+            int ctxLimit = getContextLimit();
+            int ctxPercent = getContextUsagePercent();
+            for (AgentHook h : hooks) {
+                h.onContextUsage(ctxTokens, ctxLimit, ctxPercent);
+            }
             checkAndAutoCompact();
             LLMResponse response = provider.chat(
                     messages,
@@ -141,6 +147,12 @@ public class AgentLoop {
                 messageBuilder.addAssistantMessage(messages, response);
                 for (AgentHook h : hooks) {
                     h.onLoopEnd(finalResponse);
+                }
+                int endTokens = getCurrentTokenCount();
+                int endLimit = getContextLimit();
+                int endPercent = getContextUsagePercent();
+                for (AgentHook h : hooks) {
+                    h.onContextUsage(endTokens, endLimit, endPercent);
                 }
                 // 如果运行中有用户注入消息，追加后继续循环
                 boolean hadPending = !pendingUserMessages.isEmpty();
@@ -193,6 +205,12 @@ public class AgentLoop {
             }
             for (AgentHook h : hooks) {
                 h.beforeLLMCall(messages);
+            }
+            int ctxTokens2 = getCurrentTokenCount();
+            int ctxLimit2 = getContextLimit();
+            int ctxPercent2 = getContextUsagePercent();
+            for (AgentHook h : hooks) {
+                h.onContextUsage(ctxTokens2, ctxLimit2, ctxPercent2);
             }
             checkAndAutoCompact();
 
@@ -272,6 +290,12 @@ public class AgentLoop {
                 messageBuilder.addAssistantMessage(messages, response);
                 for (AgentHook h : hooks) {
                     h.onLoopEnd(finalResponse);
+                }
+                int endTokens = getCurrentTokenCount();
+                int endLimit = getContextLimit();
+                int endPercent = getContextUsagePercent();
+                for (AgentHook h : hooks) {
+                    h.onContextUsage(endTokens, endLimit, endPercent);
                 }
                 // 如果运行中有用户注入消息，追加后继续循环
                 boolean hadPending = !pendingUserMessages.isEmpty();

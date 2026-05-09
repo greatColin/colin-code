@@ -17,11 +17,17 @@ public class HistoryRecordingHook implements AgentHook {
     private final String sessionId;
     private final String agentName;
     private boolean titleGenerated = false;
+    private final java.util.function.Consumer<String> titleUpdateListener;
 
     public HistoryRecordingHook(ConversationHistoryStore store, String sessionId, String agentName) {
+        this(store, sessionId, agentName, null);
+    }
+
+    public HistoryRecordingHook(ConversationHistoryStore store, String sessionId, String agentName, java.util.function.Consumer<String> titleUpdateListener) {
         this.store = store;
         this.sessionId = sessionId;
         this.agentName = agentName;
+        this.titleUpdateListener = titleUpdateListener;
     }
 
     @Override
@@ -64,11 +70,19 @@ public class HistoryRecordingHook implements AgentHook {
         generateTitleIfNeeded(message);
     }
 
+    @Override
+    public void onContextUsage(int tokens, int limit, int percent) {
+        store.saveMessage(sessionId, HistoryMessage.contextUsage(agentName, tokens, limit, percent));
+    }
+
     private void generateTitleIfNeeded(String userMessage) {
         if (titleGenerated || userMessage == null || userMessage.trim().isEmpty()) return;
         String trimmed = userMessage.trim();
         String title = trimmed.length() > 30 ? trimmed.substring(0, 30) + "..." : trimmed;
         store.updateTitle(sessionId, title);
         titleGenerated = true;
+        if (titleUpdateListener != null) {
+            titleUpdateListener.accept(title);
+        }
     }
 }

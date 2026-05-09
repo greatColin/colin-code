@@ -104,7 +104,9 @@ public class AgentService {
                         AppConfig config = AppConfig.fromSetting("coloop-agent-setting.json");
                         LLMProvider provider = new OpenAICompatibleProvider(config.getDefaultModelConfig());
                         WebSocketLoggingHook hook = new WebSocketLoggingHook(session);
-                        HistoryRecordingHook historyHook = new HistoryRecordingHook(historyStore, ctx.sessionId, "main");
+                        HistoryRecordingHook historyHook = new HistoryRecordingHook(historyStore, ctx.sessionId, "main", title -> {
+                            sendSessionTitle(session, ctx.sessionId, title);
+                        });
 
                         // 组装命令系统
                         CommandRegistry cmdRegistry = new CommandRegistry();
@@ -392,6 +394,19 @@ public class AgentService {
         }
     }
 
+    private void sendSessionTitle(WebSocketSession session, String sessionId, String title) {
+        if (!session.isOpen()) {
+            return;
+        }
+        try {
+            WebSocketMessage msg = WebSocketMessage.sessionLoaded(sessionId, title);
+            String json = objectMapper.writeValueAsString(msg);
+            session.sendMessage(new TextMessage(json));
+        } catch (Exception e) {
+            System.err.println("Failed to send session title: " + e.getMessage());
+        }
+    }
+
     public void listHistory(WebSocketSession session) {
         List<SessionMeta> sessions = historyStore.listSessions();
         try {
@@ -404,6 +419,8 @@ public class AgentService {
     }
 
     public void loadSession(String sessionId, WebSocketSession session) {
+        SessionContext ctx = sessions.computeIfAbsent(session.getId(), k -> new SessionContext());
+        ctx.sessionId = sessionId;
         List<HistoryMessage> messages = historyStore.loadMessages(sessionId);
         SessionMeta meta = historyStore.loadSessionMeta(sessionId);
         try {
@@ -438,6 +455,11 @@ public class AgentService {
                 return WebSocketMessage.toolResult(hm.name, hm.result, hm.success != null ? hm.success : true).withAgent(hm.agent);
             case "subagent_created":
                 return WebSocketMessage.subagentCreated(hm.agent, hm.description, null).withAgent(hm.agent);
+            case "context_usage":
+                int t = hm.tokens != null ? hm.tokens : 0;
+                int l = hm.limit != null ? hm.limit : 1;
+                int p = hm.percent != null ? hm.percent : 0;
+                return WebSocketMessage.contextUsage(t, l, p).withAgent(hm.agent);
             default:
                 return null;
         }
