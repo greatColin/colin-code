@@ -18,7 +18,8 @@
       "apiKey": "${COLIN_CODE_MINIMAX_API_KEY}",
       "apiBase": "https://api.minimaxi.com/v1",
       "model": "MiniMax-M2.7",
-      "maxContextSize": "200k"
+      "maxContextSize": "200k",
+      "description": "MiniMax M2.7 model via MiniMax API"
     }
   },
   "mcpServers": {

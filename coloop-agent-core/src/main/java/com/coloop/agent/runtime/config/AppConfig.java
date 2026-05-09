@@ -1,5 +1,6 @@
 package com.coloop.agent.runtime.config;
 
+import com.fasterxml.jackson.core.json.JsonReadFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -17,7 +18,8 @@ import java.util.Map;
  */
 public class AppConfig {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = new ObjectMapper()
+        .enable(JsonReadFeature.ALLOW_JAVA_COMMENTS.mappedFeature());
     private static final int DEFAULT_MAX_ITERATIONS = 50;
     private static final int DEFAULT_EXEC_TIMEOUT_SECONDS = 30;
     public static final int DEFAULT_MAX_CONTEXT_SIZE = 100 * 1024;
@@ -45,6 +47,7 @@ public class AppConfig {
         private Integer maxTokens;
         private Double temperature;
         private String maxContextSize;
+        private String description;
 
         public String getModel() { return model; }
         public void setModel(String model) { this.model = model; }
@@ -70,6 +73,9 @@ public class AppConfig {
         public void setMaxContextSize(String maxContextSize) {
             this.maxContextSize = maxContextSize;
         }
+
+        public String getDescription() { return description != null ? description : ""; }
+        public void setDescription(String description) { this.description = description; }
     }
 
     // ==================== 内部类：MCP 服务器配置 ====================
@@ -216,6 +222,7 @@ public class AppConfig {
                 mc.setMaxTokens(getInteger(modelNode, "maxTokens"));
                 mc.setTemperature(getDouble(modelNode, "temperature"));
                 mc.setMaxContextSize(expandEnv(getString(modelNode, "maxContextSize", null)));
+                mc.setDescription(getString(modelNode, "description", ""));
                 config.models.put(name, mc);
             }
         }
