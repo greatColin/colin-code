@@ -65,9 +65,7 @@
     const statusEl = document.getElementById('connection-status');
     const commandSuggestionsEl = document.getElementById('command-suggestions');
     const agentSidebarEl = document.getElementById('agent-sidebar');
-    const currentSessionListEl = document.getElementById('current-session-list');
-    const historySectionHeader = document.getElementById('history-section-header');
-    const historyListEl = document.getElementById('history-list');
+    const agentListEl = document.getElementById('agent-list');
     const agentSidebarToggleEl = document.getElementById('agent-sidebar-toggle');
 
     const wsUrl = 'ws://' + window.location.host + '/ws/agent';
@@ -91,9 +89,6 @@
                 contextUsage: null,
                 meta: meta || { name: name }
             });
-            if (name !== 'main' && currentSessionListEl) {
-                addAgentToCurrentSession(name, meta);
-            }
         }
     }
     ensureAgent('main', { name: 'main' });
@@ -141,7 +136,7 @@
     }
 
     function updateSidebarActive(name) {
-        var items = currentSessionListEl.querySelectorAll('.agent-item');
+        var items = agentListEl.querySelectorAll('.agent-item');
         items.forEach(function(item) {
             if (item.dataset.agent === name) {
                 item.classList.add('active');
@@ -198,11 +193,6 @@
         var agent = msg.agentName || 'main';
         ensureAgent(agent);
 
-        // Sync to GraphState for group chat and topology
-        if (window.GraphState) {
-            window.GraphState.updateFromMessage(msg);
-        }
-
         switch (msg.type) {
             case 'subagent_created':
                 addAgentToSidebar(msg.payload);
@@ -253,22 +243,16 @@
                 break;
             case 'new_session':
                 renderNewSession();
-                updateSessionTitle('coloop-agent Web');
                 break;
-            case 'history_list':
-                renderHistoryList(msg.payload && msg.payload.sessions);
-                return;
-            case 'session_loaded':
-                updateSessionTitle(msg.payload.title || msg.payload.sessionId);
-                return;
             case 'commands':
                 availableCommands = (msg.payload && msg.payload.commands) || [];
                 break;
             case 'task_list':
-                handleTaskList(msg.payload && msg.payload.tasks);
-                return;
             case 'task_update':
-                handleTaskUpdate(msg.payload);
+                // No-op: task sidebar removed, keep as defensive stub
+                break;
+            case 'toast':
+                showToast(msg.payload.message, msg.payload.durationMs);
                 return;
         }
         scrollToBottom();
@@ -463,13 +447,6 @@
         insertBeforeAssistant(agentName, card);
     }
 
-    function updateSessionTitle(title) {
-        var singleTitle = document.getElementById('session-title');
-        var combinedTitle = document.getElementById('session-title-combined');
-        if (singleTitle) singleTitle.textContent = title || 'coloop-agent Web';
-        if (combinedTitle) combinedTitle.textContent = title || 'coloop-agent Web';
-    }
-
     function updateContextBar(payload) {
         const valueEl = document.getElementById('context-value');
         const fillEl = document.getElementById('context-progress-fill');
@@ -512,9 +489,7 @@
         const text = messageInput.value.trim();
         if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
 
-        var targetSelect = document.getElementById('single-target-select');
-        var target = targetSelect ? targetSelect.value : 'main';
-        ws.send(JSON.stringify({ action: 'chat', message: text, targetAgent: target }));
+        ws.send(JSON.stringify({ action: 'chat', message: text }));
         messageInput.value = '';
         hideSuggestions();
     }
@@ -664,131 +639,32 @@
     }
 
     function addAgentToSidebar(payload) {
-        addAgentToCurrentSession(payload.name, { name: payload.name, description: payload.description });
-    }
-
-    function addAgentToCurrentSession(name, meta) {
-        if (!currentSessionListEl) return;
-        var existing = currentSessionListEl.querySelector('[data-agent="' + name + '"]');
-        if (existing) return;
+        if (!agentListEl) return;
+        var existing = agentListEl.querySelector('[data-agent="' + payload.name + '"]');
+        if (existing) existing.remove();
 
         var item = document.createElement('div');
         item.className = 'agent-item';
-        item.dataset.agent = name;
-        item.innerHTML = '<span class="agent-icon">🤖</span><span class="agent-name">' + escapeHtml(name) + '</span>';
+        item.dataset.agent = payload.name;
+        item.innerHTML = '<span class="agent-icon">🤖</span><span class="agent-name">' + escapeHtml(payload.name) + '</span>';
         item.addEventListener('click', function() {
-            switchToAgent(name);
+            switchToAgent(payload.name);
         });
-        currentSessionListEl.appendChild(item);
-
-        // Update single-mode target select
-        var singleSelect = document.getElementById('single-target-select');
-        if (singleSelect && !singleSelect.querySelector('option[value="' + name + '"]')) {
-            var opt = document.createElement('option');
-            opt.value = name;
-            opt.textContent = name;
-            singleSelect.appendChild(opt);
-        }
+        agentListEl.appendChild(item);
     }
 
     function removeAgentFromSidebar(name) {
-        if (!currentSessionListEl) return;
-        var item = currentSessionListEl.querySelector('[data-agent="' + name + '"]');
+        if (!agentListEl) return;
+        var item = agentListEl.querySelector('[data-agent="' + name + '"]');
         if (!item) return;
         item.classList.add('removing');
         setTimeout(function() {
             if (item.parentNode) item.parentNode.removeChild(item);
         }, 300);
-
-        // Remove from single-mode target select
-        var singleSelect = document.getElementById('single-target-select');
-        if (singleSelect) {
-            var opt = singleSelect.querySelector('option[value="' + name + '"]');
-            if (opt) opt.remove();
-        }
     }
 
     function escapeHtml(str) {
         return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-
-    // --- Task sidebar rendering ---
-    const taskListContainerEl = document.getElementById('task-list-container');
-    const taskCountBadgeEl = document.getElementById('task-count-badge');
-
-    function getStatusIcon(status) {
-        switch (status) {
-            case 'in_progress': return '⏳';
-            case 'pending': return '⏸';
-            case 'completed': return '✅';
-            default: return '•';
-        }
-    }
-
-    function getStatusClass(status) {
-        switch (status) {
-            case 'in_progress': return 'task-in-progress';
-            case 'pending': return 'task-pending';
-            case 'completed': return 'task-completed';
-            default: return 'task-pending';
-        }
-    }
-
-    function handleTaskList(tasks) {
-        if (!taskListContainerEl) return;
-        taskListContainerEl.innerHTML = '';
-
-        if (!tasks || tasks.length === 0) {
-            var empty = document.createElement('div');
-            empty.className = 'task-empty';
-            empty.textContent = '暂无任务';
-            taskListContainerEl.appendChild(empty);
-            if (taskCountBadgeEl) taskCountBadgeEl.textContent = '';
-            return;
-        }
-
-        // Sort: IN_PROGRESS first, then PENDING, then COMPLETED
-        var order = { in_progress: 0, pending: 1, completed: 2 };
-        tasks.sort(function(a, b) {
-            return (order[a.status] || 0) - (order[b.status] || 0);
-        });
-
-        tasks.forEach(function(task) {
-            var el = document.createElement('div');
-            el.className = 'task-item ' + getStatusClass(task.status);
-            el.dataset.taskId = task.id;
-            el.innerHTML = '<span class="task-status-icon">' + getStatusIcon(task.status) + '</span>' +
-                '<span class="task-subject">' + escapeHtml(task.description || task.subject || '') + '</span>';
-            taskListContainerEl.appendChild(el);
-        });
-
-        if (taskCountBadgeEl) {
-            var activeCount = tasks.filter(function(t) { return t.status !== 'completed'; }).length;
-            taskCountBadgeEl.textContent = activeCount > 0 ? String(activeCount) : '';
-        }
-    }
-
-    function handleTaskUpdate(payload) {
-        if (!taskListContainerEl || !payload) return;
-        var id = payload.id;
-        var status = (payload.status || '').toLowerCase();
-        var desc = payload.description || '';
-
-        var existing = taskListContainerEl.querySelector('[data-task-id="' + id + '"]');
-        if (existing) {
-            existing.className = 'task-item ' + getStatusClass(status);
-            existing.innerHTML = '<span class="task-status-icon">' + getStatusIcon(status) + '</span>' +
-                '<span class="task-subject">' + escapeHtml(desc) + '</span>';
-        }
-        // Update badge count
-        if (taskCountBadgeEl) {
-            var visibleTasks = taskListContainerEl.querySelectorAll('.task-item');
-            var activeCount = 0;
-            visibleTasks.forEach(function(el) {
-                if (!el.classList.contains('task-completed')) activeCount++;
-            });
-            taskCountBadgeEl.textContent = activeCount > 0 ? String(activeCount) : '';
-        }
     }
 
     if (agentSidebarToggleEl && agentSidebarEl) {
@@ -817,124 +693,32 @@
     }
 
     // Bind click to existing agent items (e.g. 'main')
-    if (currentSessionListEl) {
-        currentSessionListEl.querySelectorAll('.agent-item').forEach(function(item) {
+    if (agentListEl) {
+        agentListEl.querySelectorAll('.agent-item').forEach(function(item) {
             item.addEventListener('click', function() {
                 switchToAgent(item.dataset.agent);
             });
         });
     }
 
-    function renderHistoryList(sessions) {
-        if (!historyListEl) return;
-        historyListEl.innerHTML = '';
-        if (!sessions || !sessions.length) {
-            var empty = document.createElement('div');
-            empty.className = 'history-item';
-            empty.style.opacity = '0.5';
-            empty.textContent = '无历史记录';
-            historyListEl.appendChild(empty);
-            return;
-        }
-        sessions.forEach(function(s) {
-            var item = document.createElement('div');
-            item.className = 'history-item';
-            item.dataset.sessionId = s.id;
-            item.textContent = s.title || s.id;
-            item.title = new Date(s.createdAt).toLocaleString();
-            item.addEventListener('click', function() {
-                loadSession(s.id);
-            });
-            historyListEl.appendChild(item);
+    function showToast(message, durationMs) {
+        var toast = document.createElement('div');
+        toast.className = 'toast-notification';
+        toast.textContent = message;
+        toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#333;color:#fff;padding:12px 20px;border-radius:6px;z-index:9999;font-size:14px;opacity:0;transition:opacity 0.3s ease;max-width:400px;word-wrap:break-word;';
+        document.body.appendChild(toast);
+
+        requestAnimationFrame(function() {
+            toast.style.opacity = '1';
         });
+
+        setTimeout(function() {
+            toast.style.opacity = '0';
+            setTimeout(function() {
+                if (toast.parentNode) toast.parentNode.removeChild(toast);
+            }, 300);
+        }, durationMs);
     }
-
-    function loadSession(sessionId) {
-        if (!ws || ws.readyState !== WebSocket.OPEN) return;
-        agentState.clear();
-        chatContainer.innerHTML = '';
-        ensureAgent('main', { name: 'main' });
-        currentAgent = 'main';
-        updateSidebarActive('main');
-        if (currentSessionListEl) {
-            var items = currentSessionListEl.querySelectorAll('.agent-item');
-            items.forEach(function(item) {
-                if (item.dataset.agent !== 'main') item.remove();
-            });
-        }
-        var singleSelect = document.getElementById('single-target-select');
-        if (singleSelect) {
-            singleSelect.innerHTML = '<option>main</option>';
-        }
-        if (window.GraphState) {
-            window.GraphState.reset();
-        }
-        ws.send(JSON.stringify({ action: 'load_session', sessionId: sessionId }));
-    }
-
-    // History section toggle
-    if (historySectionHeader) {
-        historySectionHeader.addEventListener('click', function() {
-            var section = historySectionHeader.closest('.sidebar-section');
-            var body = document.getElementById('history-list');
-            if (section.classList.contains('expanded')) {
-                section.classList.remove('expanded');
-                body.classList.add('collapsed');
-            } else {
-                section.classList.add('expanded');
-                body.classList.remove('collapsed');
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ action: 'list_history' }));
-                }
-            }
-        });
-    }
-
-    // Current session section toggle
-    var currentSectionHeader = document.querySelector('[data-section="current"] .sidebar-section-header');
-    if (currentSectionHeader) {
-        currentSectionHeader.addEventListener('click', function() {
-            var section = currentSectionHeader.closest('.sidebar-section');
-            var body = section.querySelector('.sidebar-section-body');
-            if (section.classList.contains('expanded')) {
-                section.classList.remove('expanded');
-                body.classList.add('collapsed');
-            } else {
-                section.classList.add('expanded');
-                body.classList.remove('collapsed');
-            }
-        });
-    }
-
-    // Mode switching
-    var singleModeEl = document.getElementById('single-mode');
-    var combinedModeEl = document.getElementById('combined-mode');
-
-    function switchMode(mode) {
-        document.querySelectorAll('.mode-btn').forEach(function(b) {
-            if (b.dataset.mode === mode) b.classList.add('active');
-            else b.classList.remove('active');
-        });
-        if (mode === 'single') {
-            if (singleModeEl) singleModeEl.style.display = '';
-            if (combinedModeEl) combinedModeEl.style.display = 'none';
-        } else {
-            if (singleModeEl) singleModeEl.style.display = 'none';
-            if (combinedModeEl) combinedModeEl.style.display = '';
-        }
-        if (window.GraphState) window.GraphState.currentMode = mode;
-    }
-
-    document.querySelectorAll('.mode-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            switchMode(btn.dataset.mode);
-        });
-    });
-
-    // Expose ws for group-chat.js
-    Object.defineProperty(window, 'ws', {
-        get: function() { return ws; }
-    });
 
     // Start connection
     connect();

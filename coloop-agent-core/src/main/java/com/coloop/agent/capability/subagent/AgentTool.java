@@ -10,8 +10,7 @@ import java.util.stream.Collectors;
 
 public class AgentTool extends BaseTool {
 
-    private static final java.util.Set<String> FORBIDDEN_TOOLS = java.util.Set.of(
-            "Agent", "SendMessage", "task_create", "task_update", "task_list", "task_get");
+    private static final java.util.Set<String> FORBIDDEN_TOOLS = java.util.Set.of("Agent", "SendMessage");
 
     private final SubagentRegistry registry;
     private final SubagentLoopFactory factory;
@@ -44,11 +43,15 @@ public class AgentTool extends BaseTool {
         props.put("tool_names", Map.of(
             "type", "array",
             "items", Map.of("type", "string"),
-            "description", "Tool name whitelist; omit for default parent toolset minus Agent/SendMessage/task tools."
+            "description", "Tool name whitelist; omit for default parent toolset minus Agent/SendMessage."
         ));
         props.put("return_thinking", Map.of(
             "type", "boolean",
             "description", "Whether to include <think> blocks in the result returned to the parent agent. Default false."
+        ));
+        props.put("model", Map.of(
+            "type", "string",
+            "description", "Model config key (e.g. 'minimax', 'glm-4-free'). Omit to use the main agent's model."
         ));
 
         Map<String, Object> params = new LinkedHashMap<>();
@@ -86,9 +89,10 @@ public class AgentTool extends BaseTool {
         // Default false because reasoning content is usually noise for the parent;
         // WebSocket thinking events are still sent to the frontend regardless.
         boolean returnThinking = Boolean.TRUE.equals(params.get("return_thinking"));
+        String modelKey = getStringParam(params, "model");
 
         try {
-            AgentLoop subLoop = factory.create(name, systemPrompt, toolNames, null);
+            AgentLoop subLoop = factory.create(name, systemPrompt, toolNames, modelKey);
             SubagentInstance instance = new SubagentInstance(name, description, systemPrompt, toolNames, subLoop, returnThinking);
 
             synchronized (instance.runLock) {

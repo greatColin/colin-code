@@ -196,4 +196,51 @@ class AgentToolTest {
 
         assertNull(capturedNames[0]); // null means "use all parent tools"
     }
+
+    @Test
+    void testModelParameterPassedToFactory() throws IOException {
+        final String[] capturedModel = new String[1];
+        SubagentLoopFactory factory = (name, sp, tn, mk) -> {
+            capturedModel[0] = mk;
+            MockProvider provider = new MockProvider(
+                List.of(new LLMResponse() {{ setContent("ok"); }})
+            );
+            StandardMessageBuilder mb = new StandardMessageBuilder(
+                List.of(new SubagentPromptPlugin(sp)), config);
+            return new AgentLoop(provider, new ToolRegistry(), mb,
+                Collections.emptyList(), Collections.emptyList(), config);
+        };
+
+        AgentTool tool = new AgentTool(registry, factory);
+        tool.execute(Map.of(
+            "name", "m", "description", "d",
+            "system_prompt", "sp", "prompt", "p",
+            "model", "minimax"
+        ));
+
+        assertEquals("minimax", capturedModel[0]);
+    }
+
+    @Test
+    void testNullModelWhenOmitted() throws IOException {
+        final String[] capturedModel = new String[1];
+        SubagentLoopFactory factory = (name, sp, tn, mk) -> {
+            capturedModel[0] = mk;
+            MockProvider provider = new MockProvider(
+                List.of(new LLMResponse() {{ setContent("ok"); }})
+            );
+            StandardMessageBuilder mb = new StandardMessageBuilder(
+                List.of(new SubagentPromptPlugin(sp)), config);
+            return new AgentLoop(provider, new ToolRegistry(), mb,
+                Collections.emptyList(), Collections.emptyList(), config);
+        };
+
+        AgentTool tool = new AgentTool(registry, factory);
+        tool.execute(Map.of(
+            "name", "m", "description", "d",
+            "system_prompt", "sp", "prompt", "p"
+        ));
+
+        assertNull(capturedModel[0]);
+    }
 }

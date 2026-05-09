@@ -45,4 +45,12 @@ class WebSocketMessageTest {
         List<?> payloadCommands = (List<?>) msg.getPayload().get("commands");
         assertTrue(payloadCommands.isEmpty());
     }
+
+    @Test
+    void testToastMessage() {
+        WebSocketMessage msg = WebSocketMessage.toast("Model not found, using default.", 5000);
+        assertEquals("toast", msg.getType());
+        assertEquals("Model not found, using default.", msg.getPayload().get("message"));
+        assertEquals(5000, msg.getPayload().get("durationMs"));
+    }
 }

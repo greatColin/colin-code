@@ -27,11 +27,6 @@ import com.coloop.agent.capability.subagent.SubagentLoopFactory;
 import com.coloop.agent.capability.subagent.SubagentManagementCapability;
 import com.coloop.agent.capability.subagent.SubagentPromptPlugin;
 import com.coloop.agent.capability.subagent.SubagentRegistry;
-import com.coloop.agent.core.history.ConversationHistoryStore;
-import com.coloop.agent.core.history.FileSystemHistoryStore;
-import com.coloop.agent.core.history.HistoryMessage;
-import com.coloop.agent.core.history.HistoryRecordingHook;
-import com.coloop.agent.core.history.SessionMeta;
 import com.coloop.agent.core.tool.Tool;
 import com.coloop.agent.server.hook.SubagentLoggingHook;
 import com.coloop.agent.server.hook.WebSocketLoggingHook;
@@ -41,7 +36,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -56,24 +50,14 @@ public class AgentService {
     private final ExecutorService executor = Executors.newCachedThreadPool();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ConcurrentHashMap<String, SessionContext> sessions = new ConcurrentHashMap<>();
-    private final ConversationHistoryStore historyStore;
-
-    public AgentService() {
-        this.historyStore = new FileSystemHistoryStore(Paths.get("."));
-    }
 
     private static class SessionContext {
         AgentLoop agentLoop;
         boolean isRunning;
-        String sessionId;
-        SubagentRegistry subagentRegistry;
     }
 
     public void startChat(String userMessage, WebSocketSession session) {
         SessionContext ctx = sessions.computeIfAbsent(session.getId(), k -> new SessionContext());
-        if (ctx.sessionId == null) {
-            ctx.sessionId = historyStore.createSession();
-        }
 
         String trimmed = userMessage.trim();
 
@@ -104,9 +88,6 @@ public class AgentService {
                         AppConfig config = AppConfig.fromSetting("coloop-agent-setting.json");
                         LLMProvider provider = new OpenAICompatibleProvider(config.getDefaultModelConfig());
                         WebSocketLoggingHook hook = new WebSocketLoggingHook(session);
-                        HistoryRecordingHook historyHook = new HistoryRecordingHook(historyStore, ctx.sessionId, "main", title -> {
-                            sendSessionTitle(session, ctx.sessionId, title);
-                        });
 
                         // 组装命令系统
                         CommandRegistry cmdRegistry = new CommandRegistry();
@@ -192,21 +173,40 @@ public class AgentService {
                         // Step 3: Factory closure holds parent tools, provider, config, session
                         SubagentLoopFactory factory =
                                 (name, sysPrompt, toolNames, modelKey) -> {
-                                    java.util.Set<String> forbidden = java.util.Set.of(
-                                            "Agent", "SendMessage", "task_create", "task_update", "task_list", "task_get");
-                                    List<Tool> filtered = new ArrayList<>();
-                                    for (Tool t : parentTools) {
-                                        if (forbidden.contains(t.getName())) {
-                                            continue;
+                                    LLMProvider subProvider = provider;  // default: use main agent's provider
+                                    if (modelKey != null && !modelKey.isEmpty()) {
+                                        AppConfig.ModelConfig mc = config.getModelConfig(modelKey);
+                                        if (mc != null) {
+                                            subProvider = new OpenAICompatibleProvider(mc);
+                                        } else {
+                                            // Fallback: send toast notification
+                                            try {
+                                                if (session.isOpen()) {
+                                                    WebSocketMessage toast = WebSocketMessage.toast(
+                                                        "Model '" + modelKey + "' not found in config. Using default model.",
+                                                        5000
+                                                    );
+                                                    String json = objectMapper.writeValueAsString(toast);
+                                                    session.sendMessage(new TextMessage(json));
+                                                }
+                                            } catch (Exception ex) {
+                                                System.err.println("Failed to send toast: " + ex.getMessage());
+                                            }
                                         }
-                                        if (toolNames == null || toolNames.contains(t.getName())) {
-                                            filtered.add(t);
+                                    }
+                                    List<Tool> filtered;
+                                    if (toolNames == null) {
+                                        filtered = parentTools;
+                                    } else {
+                                        filtered = new ArrayList<>();
+                                        for (Tool t : parentTools) {
+                                            if (toolNames.contains(t.getName())) {
+                                                filtered.add(t);
+                                            }
                                         }
                                     }
                                     SubagentLoggingHook subHook =
                                             new SubagentLoggingHook(session, name);
-                                    HistoryRecordingHook subHistoryHook =
-                                            new HistoryRecordingHook(historyStore, ctx.sessionId, name);
                                     SubagentPromptPlugin promptPlugin =
                                             new SubagentPromptPlugin(sysPrompt);
                                     StandardMessageBuilder subMb =
@@ -214,10 +214,9 @@ public class AgentService {
                                                     List.of(promptPlugin), config);
                                     CapabilityLoader sub = new CapabilityLoader()
                                             .withMessageBuilder(subMb)
-                                            .withHook(subHook)
-                                            .withHook(subHistoryHook);
+                                            .withHook(subHook);
                                     for (Tool t : filtered) sub.withTool(t);
-                                    AgentLoop subLoop = sub.build(provider, config);
+                                    AgentLoop subLoop = sub.build(subProvider, config);
                                     subHook.setAgentLoop(subLoop);
                                     return subLoop;
                                 };
@@ -253,13 +252,11 @@ public class AgentService {
                         };
                         SubagentManagementCapability subagentCap =
                                 new SubagentManagementCapability(
-                                        factory, subagentRegistry, subagentListener);
-                        ctx.subagentRegistry = subagentRegistry;
+                                        factory, subagentRegistry, subagentListener, config);
 
                         // Step 5: Add subagent composite, hook, interceptor
                         main.withComposite(subagentCap)
                                 .withHook(hook)
-                                .withHook(historyHook)
                                 .withInterceptor(cmdInterceptor);
 
                         // Step 6: Build
@@ -305,10 +302,6 @@ public class AgentService {
             } finally {
                 synchronized (ctx) {
                     ctx.isRunning = false;
-                    if ("/new".equals(trimmed)) {
-                        ctx.sessionId = historyStore.createSession();
-                        sendSystem(session, "New session created.");
-                    }
                 }
             }
         });
@@ -353,21 +346,6 @@ public class AgentService {
         }
     }
 
-    public void sendToSubagent(String targetAgent, String message, WebSocketSession session) {
-        SessionContext ctx = sessions.get(session.getId());
-        if (ctx == null || ctx.subagentRegistry == null) {
-            sendError(session, "Session not initialized or no subagents available");
-            return;
-        }
-        SubagentInstance inst = ctx.subagentRegistry.get(targetAgent);
-        if (inst == null || inst.agentLoop == null) {
-            sendError(session, "Subagent '" + targetAgent + "' not found");
-            return;
-        }
-        inst.agentLoop.injectUserMessage(message);
-        sendSystem(session, "Message sent to " + targetAgent);
-    }
-
     private void sendError(WebSocketSession session, String message) {
         if (!session.isOpen()) {
             return;
@@ -391,77 +369,6 @@ public class AgentService {
             session.sendMessage(new TextMessage(json));
         } catch (Exception e) {
             System.err.println("Failed to send system message: " + e.getMessage());
-        }
-    }
-
-    private void sendSessionTitle(WebSocketSession session, String sessionId, String title) {
-        if (!session.isOpen()) {
-            return;
-        }
-        try {
-            WebSocketMessage msg = WebSocketMessage.sessionLoaded(sessionId, title);
-            String json = objectMapper.writeValueAsString(msg);
-            session.sendMessage(new TextMessage(json));
-        } catch (Exception e) {
-            System.err.println("Failed to send session title: " + e.getMessage());
-        }
-    }
-
-    public void listHistory(WebSocketSession session) {
-        List<SessionMeta> sessions = historyStore.listSessions();
-        try {
-            WebSocketMessage msg = WebSocketMessage.historyList(sessions);
-            String json = objectMapper.writeValueAsString(msg);
-            session.sendMessage(new TextMessage(json));
-        } catch (Exception e) {
-            System.err.println("Failed to send history list: " + e.getMessage());
-        }
-    }
-
-    public void loadSession(String sessionId, WebSocketSession session) {
-        SessionContext ctx = sessions.computeIfAbsent(session.getId(), k -> new SessionContext());
-        ctx.sessionId = sessionId;
-        List<HistoryMessage> messages = historyStore.loadMessages(sessionId);
-        SessionMeta meta = historyStore.loadSessionMeta(sessionId);
-        try {
-            for (HistoryMessage hm : messages) {
-                WebSocketMessage msg = convertToWebSocketMessage(hm);
-                if (msg != null) {
-                    String json = objectMapper.writeValueAsString(msg);
-                    session.sendMessage(new TextMessage(json));
-                }
-            }
-            WebSocketMessage loadedMsg = WebSocketMessage.sessionLoaded(sessionId, meta != null ? meta.title : "Unknown");
-            String json = objectMapper.writeValueAsString(loadedMsg);
-            session.sendMessage(new TextMessage(json));
-        } catch (Exception e) {
-            System.err.println("Failed to load session: " + e.getMessage());
-        }
-    }
-
-    private WebSocketMessage convertToWebSocketMessage(HistoryMessage hm) {
-        switch (hm.type) {
-            case "user":
-                return WebSocketMessage.user(hm.content).withAgent(hm.agent);
-            case "assistant":
-                return WebSocketMessage.assistant(hm.content).withAgent(hm.agent);
-            case "system":
-                return WebSocketMessage.system(hm.message).withAgent(hm.agent);
-            case "thinking":
-                return WebSocketMessage.thinking(hm.content, hm.reasoning).withAgent(hm.agent);
-            case "tool_call":
-                return WebSocketMessage.toolCall(hm.name, hm.args, hm.fullArgs).withAgent(hm.agent);
-            case "tool_result":
-                return WebSocketMessage.toolResult(hm.name, hm.result, hm.success != null ? hm.success : true).withAgent(hm.agent);
-            case "subagent_created":
-                return WebSocketMessage.subagentCreated(hm.agent, hm.description, null).withAgent(hm.agent);
-            case "context_usage":
-                int t = hm.tokens != null ? hm.tokens : 0;
-                int l = hm.limit != null ? hm.limit : 1;
-                int p = hm.percent != null ? hm.percent : 0;
-                return WebSocketMessage.contextUsage(t, l, p).withAgent(hm.agent);
-            default:
-                return null;
         }
     }
 }
