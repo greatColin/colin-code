@@ -86,7 +86,6 @@
         const gs = window.GraphState;
         if (!gs) return;
         const agents = gs.getAgentList();
-        if (agents.length === 0) return;
 
         const layout = layouts[gs.topologyLayout] || layouts.flow;
         const positions = layout.compute(agents, canvas.clientWidth, canvas.clientHeight);

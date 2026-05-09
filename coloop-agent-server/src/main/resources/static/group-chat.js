@@ -50,15 +50,15 @@
     }
 
     function renderMembers(agents) {
-        var count = agents.length + 1; // +1 for main
+        var subagents = agents.filter(function(a) { return a.name !== 'main'; });
+        var count = 1 + subagents.length;
         var html = '<div class="group-members-header">群成员 (' + count + ')</div>';
         html += '<div class="group-member">' +
             '<span class="group-member-avatar">⭐</span>' +
             '<span class="group-member-name">main</span>' +
             '<span class="group-member-role">群主</span>' +
             '</div>';
-        agents.forEach(function(a) {
-            if (a.name === 'main') return;
+        subagents.forEach(function(a) {
             var statusText = a.status === 'working' ? '工作中' : '空闲';
             html += '<div class="group-member">' +
                 '<span class="group-member-avatar">🤖</span>' +

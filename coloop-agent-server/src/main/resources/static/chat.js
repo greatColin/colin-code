@@ -781,6 +781,13 @@
                 if (item.dataset.agent !== 'main') item.remove();
             });
         }
+        var singleSelect = document.getElementById('single-target-select');
+        if (singleSelect) {
+            singleSelect.innerHTML = '<option>main</option>';
+        }
+        if (window.GraphState) {
+            window.GraphState.reset();
+        }
         ws.send(JSON.stringify({ action: 'load_session', sessionId: sessionId }));
     }
 

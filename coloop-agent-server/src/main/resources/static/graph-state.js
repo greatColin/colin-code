@@ -128,6 +128,12 @@
             this.listeners.forEach(fn => fn(this));
         },
 
+        reset() {
+            this.agents.clear();
+            this.groupMessages.length = 0;
+            this.notifyListeners();
+        },
+
         getAgentList() {
             return Array.from(this.agents.values()).filter(a => a.status !== 'removed');
         },
