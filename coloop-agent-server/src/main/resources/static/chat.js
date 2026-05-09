@@ -251,6 +251,9 @@
             case 'task_update':
                 // No-op: task sidebar removed, keep as defensive stub
                 break;
+            case 'toast':
+                showToast(msg.payload.message, msg.payload.durationMs);
+                return;
         }
         scrollToBottom();
     }
@@ -696,6 +699,25 @@
                 switchToAgent(item.dataset.agent);
             });
         });
+    }
+
+    function showToast(message, durationMs) {
+        var toast = document.createElement('div');
+        toast.className = 'toast-notification';
+        toast.textContent = message;
+        toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#333;color:#fff;padding:12px 20px;border-radius:6px;z-index:9999;font-size:14px;opacity:0;transition:opacity 0.3s ease;max-width:400px;word-wrap:break-word;';
+        document.body.appendChild(toast);
+
+        requestAnimationFrame(function() {
+            toast.style.opacity = '1';
+        });
+
+        setTimeout(function() {
+            toast.style.opacity = '0';
+            setTimeout(function() {
+                if (toast.parentNode) toast.parentNode.removeChild(toast);
+            }, 300);
+        }, durationMs);
     }
 
     // Start connection
