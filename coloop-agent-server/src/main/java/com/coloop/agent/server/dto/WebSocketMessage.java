@@ -134,6 +134,13 @@ public class WebSocketMessage {
         return new WebSocketMessage("subagent_cleared", payload);
     }
 
+    public static WebSocketMessage toast(String message, int durationMs) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("message", message);
+        payload.put("durationMs", durationMs);
+        return new WebSocketMessage("toast", payload);
+    }
+
     public String getType() {
         return type;
     }
