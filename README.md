@@ -1,8 +1,25 @@
 # coloop-agent
 
-A **lightweight, pluggable Java AGI agent core** — a minimal but powerful Agent Loop kernel for **Vibe Coding** and **Spec Coding** scenarios.
+A **lightweight, pluggable Java AGI agent platform** — a minimal but powerful Agent Loop kernel for **Vibe Coding** and **Spec Coding** scenarios, plus a Spring Boot Web UI and an independent voice-input service.
 
 English | [简体中文](README.zh.md)
+
+---
+
+## Repository Layout
+
+`coloop-agent` is a Maven multi-module project plus an independent Python service:
+
+```
+coloop-agent/
+├── coloop-agent-core/    ← Java agent kernel: core/ + capability/ + runtime/ + entry/
+├── coloop-agent-server/  ← Spring Boot WebSocket server + Web UI (depends on core)
+├── coloop-agent-voice/   ← Independent Python voice-input service (faster-whisper)
+├── docs/                 ← Design specs, implementation plans, references
+└── pom.xml               ← Parent POM (Java 17, Spring Boot 3.2.5)
+```
+
+The Java modules share `coloop-agent-setting.json` (located in `coloop-agent-core/src/main/resources/`) for model, MCP, and voice configuration.
 
 ---
 
@@ -11,322 +28,399 @@ English | [简体中文](README.zh.md)
 ### 1. Core Agent Loop
 - `AgentLoop.chat()`: a classic `while(true)` loop that calls the LLM → parses Tool Calls → executes tools → feeds results back to the LLM until a final text response is obtained.
 - `AgentLoop.chatStream()`: SSE streaming mode that returns content word-by-word via `LLMProvider.StreamConsumer` callback. Tool calls are detected and accumulated during the stream.
-- Supports a configurable maximum iteration limit (default 10) to prevent infinite loops.
+- `AgentLoopThread`: thread-wrapped loop used by the server for interruptible runs (`/stop` command).
+- Configurable maximum iteration limit (default 50) to prevent infinite loops.
 
 ### 2. Onion-Style Four-Layer Architecture
 ```
-core/           ← Teaching skeleton: AgentLoop, interfaces, data models
-capability/     ← Pluggable modules: Provider, Tool, PromptPlugin, Hook
-runtime/        ← Dynamic assembly hub: CapabilityLoader, StandardCapability, AgentRuntime
+core/           ← Teaching skeleton: AgentLoop, interfaces, data models, ConversationState
+capability/     ← Pluggable modules: Provider, Tool, PromptPlugin, Hook, Command, MCP, Subagent, Task, Plan, History
+runtime/        ← Dynamic assembly hub: CapabilityLoader, StandardCapability, CompositeCapability, AgentRuntime
 entry/          ← Multiple entry points: MinimalDemo (tutorial), CliApp (full features)
 ```
 
 ### 3. Project Structure
 
-Key packages and classes:
+Key packages and classes inside `coloop-agent-core`:
 
 ```
 com.coloop.agent
-├── core/                       ← Minimal kernel, never bloats
+├── core/                                ← Minimal kernel, never bloats
 │   ├── agent/
-│   │   ├── AgentLoop.java      ← Core while-loop: LLM → tool calls → result
-│   │   └── AgentHook.java      ← Lifecycle hook interface
+│   │   ├── AgentLoop.java               ← Core while-loop: LLM → tool calls → result
+│   │   ├── AgentLoopThread.java         ← Interruptible loop runner used by the server
+│   │   └── AgentHook.java               ← Lifecycle hook interface (incl. onStreamChunk, onSubagent*)
 │   ├── context/
-│   │   ├── ContextCompactor.java      ← Context compression strategy interface
-│   │   ├── ConversationSummary.java   ← Summary data object
-│   │   └── ConversationState.java     ← Cross-component session state sharing
-│   ├── message/
-│   │   └── MessageBuilder.java ← Abstract message assembler interface
-│   ├── prompt/
-│   │   └── PromptPlugin.java   ← Abstract prompt generator interface
-│   ├── util/
-│   │   └── TokenEstimator.java ← Lightweight token estimation utility
-│   ├── provider/
-│   │   ├── LLMProvider.java    ← LLM provider interface
-│   │   ├── LLMResponse.java
-│   │   └── ToolCallRequest.java
-│   ├── tool/
-│   │   ├── Tool.java           ← Tool contract
-│   │   ├── BaseTool.java
-│   │   └── ToolRegistry.java   ← Tool registration & dispatch
-│   ├── command/                ← Command system core interfaces
-│   │   ├── Command.java
-│   │   ├── CommandRegistry.java
-│   │   ├── CommandContext.java
-│   │   ├── CommandResult.java
-│   │   └── CommandExitException.java
-│   └── interceptor/
-│       └── InputInterceptor.java ← Pre-LLM input shortcut interceptor
-├── capability/                 ← Pluggable implementations
-│   ├── context/
-│   │   └── LLMContextCompactor.java  ← LLM-based summary compression
-│   ├── message/
-│   │   └── StandardMessageBuilder.java ← OpenAI-format message builder
-│   ├── prompt/
-│   │   ├── PromptSegment.java        ← System prompt segment enum
-│   │   ├── BasePromptPlugin.java
-│   │   ├── SkillPromptPlugin.java
-│   │   ├── AgentsMdPromptPlugin.java
-│   │   └── SummaryPromptPlugin.java  ← Injects summary into system prompt
-│   ├── provider/
-│   │   ├── openai/
-│   │   │   └── OpenAICompatibleProvider.java
-│   │   └── mock/
-│   │       └── MockProvider.java
-│   ├── tool/
-│   │   └── exec/
-│   │       └── ExecTool.java
-│   ├── hook/
-│   │   └── LoggingHook.java
-│   └── command/                ← Command system implementations
-│       ├── CommandInterceptor.java     ← InputInterceptor implementation
-│       ├── CommandScanner.java         ← User-defined command directory scanner (JSON + Markdown)
-│       ├── MdCommandParser.java        ← Parses .md command definitions (YAML frontmatter + prompt template)
-│       ├── MdPromptCommand.java        ← Markdown prompt command: renders $ARGUMENTS and forwards to LLM
-│       ├── MdCommandDefinition.java    ← Data record for parsed markdown command metadata
-│       ├── ExitCommand.java
-│       ├── NewSessionCommand.java
-│       ├── CompactCommand.java
-│       ├── ModelCommand.java
-│       └── HelpCommand.java
-├── runtime/                    ← Assembly hub
-│   ├── CapabilityLoader.java   ← Fluent chain builder
-│   ├── StandardCapability.java ← Built-in capability catalog
-│   ├── AgentRuntime.java       ← Runnable agent wrapper
-│   └── config/
-│       └── AppConfig.java
-└── entry/                      ← Entry points
-    ├── MinimalDemo.java        ← Tutorial mode (mock provider)
-    └── CliApp.java             ← Full mode (real API)
+│   │   ├── ContextCompactor.java        ← Context compression strategy interface
+│   │   ├── ConversationSummary.java     ← Summary data object
+│   │   ├── ConversationState.java       ← Cross-component session state (incl. SubagentRegistry, plan)
+│   │   └── PlanTask.java                ← Plan-mode task record
+│   ├── history/                         ← NEW: conversation persistence primitives
+│   │   ├── HistoryMessage.java
+│   │   ├── SessionMeta.java
+│   │   ├── ConversationHistoryStore.java
+│   │   ├── FileSystemHistoryStore.java
+│   │   └── HistoryRecordingHook.java
+│   ├── command/                         ← Command system core interfaces
+│   │   ├── Command.java / CommandRegistry.java / CommandContext.java
+│   │   ├── CommandResult.java / CommandExitException.java
+│   ├── interceptor/InputInterceptor.java
+│   ├── message/MessageBuilder.java
+│   ├── prompt/PromptPlugin.java
+│   ├── provider/{LLMProvider, LLMResponse, ToolCallRequest}.java
+│   ├── task/{Task, TaskStatus, TaskStore}.java   ← NEW: task data model
+│   ├── tool/{Tool, BaseTool, ToolRegistry}.java
+│   └── util/TokenEstimator.java
+├── capability/                          ← Pluggable implementations
+│   ├── command/                         ← Built-in commands + scanner
+│   │   ├── ExitCommand / NewSessionCommand / CompactCommand
+│   │   ├── ModelCommand / HelpCommand / StopCommand
+│   │   ├── CommandInterceptor / CommandScanner
+│   │   ├── MdCommandParser / MdPromptCommand / MdCommandDefinition
+│   ├── context/LLMContextCompactor.java
+│   ├── hook/{LoggingHook, ClaudeCodeStyleLoggingHook, AnsiColors}.java
+│   ├── mcp/                             ← MCP client (STDIO + JSON-RPC)
+│   │   ├── McpCapability / McpClient / McpTransport
+│   │   ├── McpToolAdapter / McpToolDefinition
+│   │   └── JsonRpcRequest / JsonRpcResponse / McpException
+│   ├── message/StandardMessageBuilder.java
+│   ├── plan/                            ← /plan mode
+│   │   ├── PlanCapability / PlanCommand / CancelCommand
+│   │   ├── PlanInjectionHook / PlanPromptPlugin
+│   ├── prompt/{Base, AgentsMd, Skill, Summary}PromptPlugin + PromptSegment
+│   ├── provider/{openai/OpenAICompatibleProvider, mock/MockProvider}
+│   ├── subagent/                        ← NEW: named multi-agent system
+│   │   ├── SubagentInstance / SubagentRegistry / SubagentEventListener
+│   │   ├── SubagentLoopFactory / SubagentPromptPlugin
+│   │   ├── AgentTool / SendMessageTool / ListModelsTool
+│   │   └── SubagentManagementCapability
+│   ├── task/                            ← NEW: task management capability
+│   │   ├── TaskCreateTool / TaskUpdateTool / TaskGetTool / TaskListTool
+│   │   ├── TaskService / InMemoryTaskStore
+│   │   ├── TaskStatusPromptPlugin / TaskDisplayHook
+│   │   ├── TaskManagementCapability
+│   │   └── command/TasksCommand
+│   └── tool/
+│       ├── exec/ExecTool.java
+│       └── filesystem/{Read, Write, Edit, Search, ListDirectory}FileTool
+├── runtime/
+│   ├── CapabilityLoader.java            ← Fluent chain builder, supports snapshotTools()
+│   ├── CompositeCapability.java         ← Bundles multiple capabilities under one entry
+│   ├── StandardCapability.java          ← Built-in capability catalog
+│   ├── runtime/{AgentRuntime, LoopInputAgentRuntime}.java
+│   └── config/AppConfig.java            ← Loads coloop-agent-setting.json (with JSON comments)
+└── entry/
+    ├── MinimalDemo.java                 ← Tutorial mode (mock provider)
+    └── CliApp.java                      ← Full CLI mode (real API + commands + MCP)
 ```
+
+Key packages inside `coloop-agent-server`:
+
+```
+com.coloop.agent.server
+├── config/        ← Spring configuration
+├── controller/    ← REST endpoints (e.g. /api/config)
+├── dto/           ← WebSocketMessage with factory methods for all event types
+├── hook/          ← AbstractWebSocketLoggingHook + WebSocketLoggingHook + SubagentLoggingHook
+├── service/       ← AgentService: per-session AgentRuntime assembly
+└── websocket/     ← AgentWebSocketHandler: chat / history / subagent / toast routing
+```
+
+Frontend (under `coloop-agent-server/src/main/resources/static/`): `index.html`, `chat.js`, `topology.js`, `group-chat.js`, `graph-state.js`, themes/, plus `theme-gallery.html` for previewing all 9 themes.
 
 ### 4. Chain-Based Capability Assembly
 Assemble agents flexibly via the `CapabilityLoader` fluent API:
 ```java
 new CapabilityLoader()
     .withCapability(StandardCapability.EXEC_TOOL, config)
+    .withCapability(StandardCapability.READ_FILE_TOOL, config)
+    .withCapability(StandardCapability.WRITE_FILE_TOOL, config)
+    .withCapability(StandardCapability.EDIT_FILE_TOOL, config)
+    .withCapability(StandardCapability.MCP_CLIENT, config)
+    .withCapability(StandardCapability.TASK_MANAGEMENT, config)
     .withCapability(StandardCapability.BASE_PROMPT, config)
     .withCapability(StandardCapability.LOGGING_HOOK, config)
     .build(provider, config);
 ```
 
-### 4. Built-in Capabilities
+### 5. Built-in Capabilities
 | Capability | Description |
 |------------|-------------|
 | **ExecTool** | Shell command execution with timeout; cross-platform (Windows / Linux) |
+| **Filesystem Tools** | `read_file`, `write_file`, `edit_file`, `search_files`, `list_directory` (under `capability/tool/filesystem`) |
 | **BasePromptPlugin** | Injects basic system prompts (identity, time, working directory, OS) |
 | **SkillPromptPlugin** | Scans and injects available skill descriptions into the system prompt |
 | **AgentsMdPromptPlugin** | Auto-reads `AGENTS.md` from the working directory and injects it |
-| **LoggingHook** | Prints debug logs at key Agent Loop lifecycle nodes |
-| **Streaming (Backend)** | `LLMProvider.chatStream()` interface with SSE word-by-word streaming; `OpenAICompatibleProvider` implements true SSE; tool calls detected and accumulated during the stream |
-| **Context Compression** | `/compact` compresses history into a summary injected into system prompt; auto-compact at 80% threshold keeping last 2 turns; model-level context config (e.g. minimax 200k / glm 100k) |
-| **Command System** | Dynamic `Command` interface + `CommandRegistry`; built-in `/exit`, `/new`, `/compact`, `/model`, `/help`; user-defined command scanning from `~/.coloop/commands/` and `./.coloop/commands/` (JSON for static/shell commands, **Markdown** for prompt templates with `$ARGUMENTS` interpolation; project-local overrides user-defined) |
+| **LoggingHook / ClaudeCodeStyleLoggingHook** | Prints debug logs at key Agent Loop lifecycle nodes; Claude-Code-style formatting available |
+| **Streaming Output** | `LLMProvider.chatStream()` + `OpenAICompatibleProvider` true SSE; tool calls detected and accumulated mid-stream |
+| **Context Compression** | `/compact` compresses history into a summary injected into system prompt; auto-compact at 80% token threshold; per-model `maxContextSize` (e.g. minimax 200k, glm 100k) |
+| **Command System** | Dynamic `Command` interface + `CommandRegistry`; built-in `/exit`, `/new`, `/compact`, `/model`, `/help`, `/plan`, `/cancel`, `/stop`, `/tasks`; user-defined commands scanned from `~/.coloop/commands/` and `./.coloop/commands/` (JSON for static/shell, **Markdown** for prompt templates with `$ARGUMENTS`; project-local overrides user-level) |
+| **Plan Mode** | `/plan` enters read-only planning mode with isolated AgentLoop using read/search/list/exec tools; plan stored in `ConversationState`; injected into main loop on confirmation; `/cancel` aborts |
+| **MCP Client** | `McpClient` connects to MCP servers via STDIO + JSON-RPC; `McpCapability` registers remote tools as local tools, configured via `AppConfig.mcpServers` |
+| **Subagent System (NEW)** | Named multi-agent coordination: `AgentTool` creates/replaces a subagent, `SendMessageTool` appends messages to an existing subagent, `ListModelsTool` queries available models. `SubagentRegistry` tracks lifecycle, `SubagentLoggingHook` routes per-agent events to the WebSocket. Subagents may pick a different `model` per-agent, with fallback toast on unknown keys. |
+| **Task Management (NEW)** | `TaskCreateTool / TaskUpdateTool / TaskGetTool / TaskListTool` plus `TaskStatusPromptPlugin` and `TaskDisplayHook`; only triggered when ≥3 steps; restricted to the main agent; `/tasks` command for CLI/Web display |
+| **History Persistence (NEW)** | `ConversationHistoryStore` + `FileSystemHistoryStore` writes session metadata and messages to disk; `HistoryRecordingHook` captures lifecycle events; the Web UI sidebar lists past sessions and restores context on click |
 
-### 5. Input Interceptor (`InputInterceptor`)
-Intercepts user input before the LLM call. Useful for shortcuts (e.g. `/compact`), skill routing, permission checks, and other direct-return features.
+### 6. Input Interceptor (`InputInterceptor`)
+Intercepts user input before the LLM call. Drives the `/`-command shortcut, plan mode, skill routing, permission checks, and other direct-return features.
 
-### 6. Provider Support
+### 7. Provider Support
 - **MockProvider**: Pre-defined response sequence for tutorials, testing, and offline environments.
-- **OpenAICompatibleProvider**: Supports any OpenAI-compatible API (e.g. OpenRouter, self-hosted vLLM).
+- **OpenAICompatibleProvider**: Supports any OpenAI-compatible API (e.g. OpenRouter, Minimax, GLM, self-hosted vLLM) with full SSE streaming.
 
-### 7. Configuration Center
-`AppConfig` loads from environment variables or JSON config files, preferring `COLIN_CODE_*` prefixes and falling back to `OPENAI_*`:
-- `COLIN_CODE_OPENAI_MODEL`
-- `COLIN_CODE_OPENAI_API_KEY`
-- `COLIN_CODE_OPENAI_API_BASE`
-- `COLIN_CODE_MAX_CONTEXT` / `MAX_CONTEXT_SIZE`
+### 8. Configuration Center
+`AppConfig` loads from `coloop-agent-core/src/main/resources/coloop-agent-setting.json` (with `${VAR}` env-var interpolation) and supports **JSON line and block comments** (`//` and `/* */`). Layout:
 
-Context size supports unit suffixes: `100k`, `200k`, `1m`, or raw numbers like `8192`. Can be set globally or per-model:
-```json
+```jsonc
 {
-  "maxContextSize": "100k",
+  // Global default model — used when a subagent does not specify a model
+  "defaultModel": "minimax",
+  "maxIterations": 50,
+  "execTimeoutSeconds": 30,
+
   "models": {
-    "minimax": { "maxContextSize": "200k" },
-    "glm-4-free": { "maxContextSize": "100k" }
+    "minimax": {
+      "description": "Main model — strong reasoning, good for complex tasks",
+      "apiKey": "${COLIN_CODE_MINIMAX_API_KEY}",
+      "apiBase": "https://api.minimaxi.com/v1",
+      "model": "MiniMax-M2.7",
+      "maxContextSize": "200k"
+    },
+    "glm-4-free": {
+      "description": "Free lightweight model — good for simple tasks",
+      "apiKey": "${COLIN_CODE_GLM_API_KEY}",
+      "apiBase": "https://open.bigmodel.cn/api/paas/v4",
+      "model": "GLM-4.7-Flash",
+      "maxContextSize": "100k"
+    }
+  },
+
+  "mcpServers": {
+    "MiniMax": { "command": "uvx", "args": ["minimax-coding-plan-mcp"], "env": { ... } }
+  },
+
+  "voice": {
+    "transcription": { "strategy": "local_whisper", "strategies": { ... } },
+    "correction":    { "strategy": "llm",           "strategies": { ... } },
+    "language": "zh",
+    "recognitionMode": "realtime",
+    "coloopServer": { "wsUrl": "ws://localhost:8080/ws/agent" }
   }
 }
 ```
+
+`maxContextSize` accepts unit suffixes (`100k`, `200k`, `1m`) or raw numbers.
 
 ---
 
 ## Quick Start
 
+### Build everything
+
 ```bash
-# Compile
-mvn compile
-
-# Run tutorial demo (mock mode, no API key required)
-mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.MinimalDemo"
-
-# Run with a real API (set environment variables first)
-export COLIN_CODE_OPENAI_API_KEY="sk-..."
-export COLIN_CODE_OPENAI_API_BASE="https://api.openai.com/v1"
-export COLIN_CODE_OPENAI_MODEL="gpt-4o"
-mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
+mvn clean install -DskipTests
 ```
 
----
+### Run the tutorial demo (no API key required)
 
-## Core Differentiation (Agent Loop Kernel Focus)
+```bash
+cd coloop-agent-core
+mvn exec:java -Dexec.mainClass="com.coloop.agent.entry.MinimalDemo"
+```
 
-Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-agent` **only focuses on the core loop**. The following gaps and strengths are framed around Vibe Coding / Spec Coding experience.
+### Run the CLI app (real API)
 
-### What We Already Have (Strengths)
-| Feature | Description |
-|---------|-------------|
-| **Minimal Kernel** | No IDE dependency, no heavy frameworks, small codebase — ideal for learning and hacking |
-| **Pure Java Ecosystem** | Friendly to Java developers; easy to integrate into enterprise Java environments |
-| **Clear Plugin Boundaries** | `Tool` / `PromptPlugin` / `AgentHook` / `InputInterceptor` interfaces are explicit; extensions do not invade the core |
-| **Environment-Aware Prompts** | BasePrompt auto-injects time, OS, and working directory to reduce LLM hallucinations |
-| **Streaming Output** | Full end-to-end: backend `chatStream()` + `OpenAICompatibleProvider` SSE, frontend incremental Markdown render with debouncing (100ms/50 chars) and blinking cursor |
+```bash
+export COLIN_CODE_MINIMAX_API_KEY="sk-..."
+# or COLIN_CODE_OPENAI_API_KEY / COLIN_CODE_GLM_API_KEY etc.
+cd coloop-agent-core
+mvn exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
+```
 
-### What We Are Missing (High Value for Vibe / Spec Coding)
+### Run the Web UI server
 
-#### Backend / Core Loop
-| Missing Capability | Impact | Priority |
-|--------------------|--------|----------|
-| **Filesystem Tools** | ✅ Done: `read_file`, `write_file`, `edit_file`, `search_files`, `list_directory` | P0 |
-| **Conversation History Persistence** | ✅ Done: `AgentLoop` maintains message list across `chat()` calls | P0 |
-| **Streaming Output (Backend)** | ✅ Done: `LLMProvider.chatStream()` + `OpenAICompatibleProvider` SSE word-by-word | P0 |
-| **Context Compression / Sliding Window** | ✅ Done: `/compact` + auto-compact (80% threshold) + TokenEstimator + model-level context config | P1 |
-| **Plan Mode** | ✅ Done: `/plan` enters read-only planning mode; plan injected on confirmation; `/cancel` to abort | P1 |
-| **Parallel Tool Calls** | OpenAI API supports multiple tool calls per turn, but we execute them serially | P1 |
-| ~~Git Integration~~ | Covered by `ExecTool` (`git diff`, `git status`, `git commit`, etc.) | — |
-| ~~Checkpoint / Rollback~~ | Covered by `ExecTool` (Git operations or manual file backups) | — |
-| **MCP (Model Context Protocol) Support** | ✅ Done: `McpClient` via STDIO + JSON-RPC; `McpCapability` exposes remote tools as local Tools | P2 |
-| **Verify-Before-Completion Loop** | Does not auto-compile / run / test after code changes to self-verify correctness | P2 |
-| **Multi-Agent Coordination** | Single loop handles everything; no Planner + Executor + Reviewer collaboration | P2 |
-| **Browser / Screenshot Capability** | Cannot validate Web UI effects, limiting frontend dev scenarios | P3 |
-| **Session Recovery** | Cannot restore previous conversation state or pending tasks after process exit | P3 |
+```bash
+cd coloop-agent-server
+mvn spring-boot:run
+# Then open http://localhost:8080/ in a browser
+```
 
-#### Frontend / Web UI
-| Missing Capability | Impact | Priority |
-|--------------------|--------|----------|
-| **Streaming Output (Frontend)** | ✅ Done: `AgentService` uses `chatStream()`; WebSocket pushes `stream_chunk` messages; frontend incremental render with debounced Markdown + syntax highlighting + blinking cursor | P0 |
-| **Markdown Rendering** | ✅ Done: `marked.js` integration renders bold, lists, links, tables, code blocks; `<think>` tags extracted into collapsible cards | P0 |
-| **Code Syntax Highlighting** | ✅ Done: `highlight.js` integration with theme-aware styling across all 9 themes | P0 |
-| **Command System** | ✅ Done: Dynamic `Command` interface + `CommandRegistry`; built-in `/exit`, `/new`, `/compact`, `/model`, `/help`; user-defined command scanning from `~/.coloop/commands/` and `./.coloop/commands/` (JSON + Markdown with `$ARGUMENTS`) | P1 |
-| **Slash Command Autocomplete** | ✅ Done: Backend pushes available command list on WebSocket connect; frontend pops up fuzzy-matched command palette with descriptions; keyboard navigation supported | P1 |
-| **Session History Sidebar** | Only one in-memory session exists; refreshing the page loses everything; no localStorage persistence | P1 |
-| **Model Switching** | `AppConfig` supports multiple models, but users cannot switch at runtime from the UI | P1 |
-| **Message Actions** | No copy, regenerate, or edit-message capabilities on chat bubbles | P1 |
-| **Settings Panel** | No UI for temperature, max_tokens, font size, or stream toggle | P2 |
-| **Welcome / Empty State** | New sessions show a blank chat area; no intro or quick-start examples | P2 |
-| **Tool Result Visualization** | File reads, edits, and search results are plain text; no diff view, line numbers, or match highlighting | P2 |
-| **Skill Execution Framework** | `SkillPromptPlugin` only injects descriptions; no real `/skill` routing or argument parsing | P2 |
-| **Export / Share** | Cannot save a conversation as Markdown or generate a share link | P3 |
-| **In-Conversation Search** | No Cmd+F to search within the current chat | P3 |
-| **Multimodal Input** | Cannot upload images or files for the LLM to analyze | P3 |
+### Run the voice-input service (optional)
+
+```bash
+cd coloop-agent-voice
+python -m venv venv && source venv/bin/activate   # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+python main.py
+# Then open http://localhost:8000/static/voice-input.html
+```
+
+The voice service streams transcribed text to the agent server via the WebSocket URL configured in `voice.coloopServer.wsUrl`.
 
 ---
 
-## Roadmap
+## Feature Overview
 
-### Phase 1: Make the Loop Able to Write Code (Backend Foundation) ✅ Done
-1. **Filesystem Tools**
-   - ✅ `read_file`: read file contents with line-range / offset support
-   - ✅ `write_file`: create new files (refuses to overwrite existing files)
-   - ✅ `edit_file`: safe editing based on exact string replacement
-   - ✅ `search_files`: regex content search with optional glob filtering
-   - ✅ `list_directory`: directory listing
-2. **Conversation History Persistence** ✅
-   - `AgentLoop` maintains the message list internally, supporting multi-turn `chat()`
-3. **Streaming Output (Backend)** ✅
-   - `LLMProvider.chatStream()` interface with default fallback to synchronous `chat()`
-   - `OpenAICompatibleProvider` implements true SSE word-by-word streaming
-   - Detects and accumulates tool calls during the stream
-4. **Web UI Foundation** ✅
-   - WebSocket-based real-time chat interface
-   - Collapsible cards for thinking, tool calls, and tool results
-   - Theme system with 9 distinct themes + theme gallery
-   - Auto-reconnect and connection status indicator
+Features grouped by capability domain, ordered roughly from foundational kernel features to higher-level UX. Status: ✅ implemented · ⚠️ partial · ⏳ planned.
 
-### Phase 2: Frontend Foundation + Command System (Current Focus)
-5. **Command System Refactor** ✅ Done
-   - ✅ Define `Command` interface + `CommandRegistry` for dynamic registration
-   - ✅ Migrate hardcoded commands (`/new`, `/exit`) from `AgentService` and `AgentLoopThread` into the registry
-   - ✅ Implement `/compact`, `/model`, and other built-in commands
-   - ✅ Directory scanning for user-defined commands (`~/.coloop/commands/`) and project-local commands (`./.coloop/commands/`, overrides user-defined on name conflict)
-   - ✅ **Markdown prompt commands**: `.md` files with YAML frontmatter + `$ARGUMENTS` interpolation, rendered and forwarded to LLM on execution
-   - ✅ Wire `CommandInterceptor` into `InputInterceptor` so `CapabilityLoader` can assemble it
-   - ✅ 127 unit tests covering core interfaces, all command implementations, interceptor logic, scanner, and runtime integration
-6. **Streaming Output (Frontend)**
-   - Add `onStreamChunk()` to `AgentHook` interface for per-token streaming notifications
-   - Switch `AgentService` from `agentLoop.chat()` to `agentLoop.chatStream()`
-   - Extend `WebSocketLoggingHook` with `onStreamChunk()` to push SSE fragments via WebSocket (`type: stream_chunk`)
-   - Frontend `chat.js`: append chunks in real time to a growing assistant message bubble, finalize on loop end
-7. **Markdown Rendering + Code Highlighting** ✅ Done
-   - ✅ Integrate `marked.js` for assistant message rendering
-   - ✅ Integrate `highlight.js` for code block syntax highlighting
-   - ✅ XSS sanitization with `DOMPurify`
-   - ✅ `<think>` tag extraction into collapsible thinking cards
-   - ✅ Theme-aware code block styling in all 9 themes
-8. **Slash Command Autocomplete** ✅ Done
-   - ✅ Backend pushes available command list on WebSocket connect
-   - ✅ Frontend: typing `/` pops up a fuzzy-matched command palette with descriptions
-   - ✅ Keyboard navigation (arrow keys, Enter, Esc)
-9. **Model Switching**
-   - Backend exposes available models via WebSocket on connect
-   - Frontend dropdown next to the theme switcher
-   - Switching rebuilds the session's `LLMProvider` with the new `ModelConfig`
-10. **Message Actions**
-    - Copy message to clipboard
-    - Regenerate last assistant response
-    - Edit a previous user message and re-run the loop
+### 1. Agent Loop Core
+| Feature | Status | Notes |
+|---------|:------:|-------|
+| Synchronous chat loop | ✅ | `AgentLoop.chat()` — LLM → parse Tool Calls → execute → feed results back |
+| Streaming chat | ✅ | `chatStream()` SSE word-by-word + mid-stream tool-call accumulation |
+| Interruptible execution | ✅ | `AgentLoopThread` + `/stop` command |
+| Max-iteration cap | ✅ | Default 50 turns, configurable |
+| Parallel tool calls | ⏳ | OpenAI returns multiple tool calls per turn; currently executed serially |
+| Verify-before-completion | ⏳ | Auto-compile / run / test after code changes, feed errors back |
 
-### Phase 3: Session Management + Backend Reliability
-11. **Session History Sidebar**
-    - localStorage / IndexedDB persistence for session metadata and messages
-    - Left sidebar: session list with title, timestamp, and message count
-    - New / delete / rename sessions; auto-title from first user message
-    - Clicking a history item restores context (replays messages into `AgentLoop`)
-12. **Plan Mode** ✅ Done
-    - ✅ `/plan` command enters read-only planning mode with isolated AgentLoop
-    - ✅ Plan generated using only read/search/list/exec tools
-    - ✅ Plan stored in `ConversationState`; injected into main loop on user confirmation
-    - ✅ `/cancel` command to abort pending plan
-13. **Parallel Tool Calls**
-    - Execute multiple tool calls from a single LLM response in parallel to reduce latency
-14. **Context Management** ✅ Done
-    - ✅ `/compact` command: compresses history into a summary and injects it into system prompt
-    - ✅ Auto-compact: triggers automatically when token usage exceeds 80%, keeping last 2 turns
-    - ✅ TokenEstimator: lightweight token estimation based on character count (Chinese 1.5 / non-Chinese 0.25)
-    - ✅ Model-level context config: `maxContextSize` field supports raw number / `k` / `m` (e.g. minimax 200k, glm 100k, default 100k)
+### 2. Providers & Model Management
+| Feature | Status | Notes |
+|---------|:------:|-------|
+| MockProvider | ✅ | Pre-defined response sequences for tutorials and offline tests |
+| OpenAI-compatible Provider | ✅ | Any OpenAI-compatible API + true SSE streaming |
+| Multi-model configuration | ✅ | `models.*` + global `defaultModel` |
+| Runtime model switching | ✅ | `/model` rebuilds the session's `LLMProvider` |
+| Per-subagent model | ✅ | `AgentTool` accepts `model` param; toast notifies on unknown key (fallback to default) |
+| Model listing tool | ✅ | `ListModelsTool` exposes configured models to the LLM |
+| Model `description` metadata | ✅ | Surfaced in UI and `ListModelsTool` |
 
-### Phase 4: Frontend Polish + Advanced Capabilities
-16. **Settings Panel**
-    - Temperature, max_tokens, stream toggle
-    - Font size and other UI preferences
-    - Persisted in localStorage
-17. **Welcome / Empty State**
-    - Intro screen for new sessions with capability summary and example prompts
-    - Quick-start buttons ("Analyze project structure", "Write a Hello World")
-18. **Tool Result Visualization**
-    - ReadFileTool: syntax-highlighted code with line numbers
-    - EditFileTool: side-by-side diff view (red/green)
-    - SearchFilesTool: highlighted match lines with clickable file paths
-    - ExecTool: terminal-style output with exit-code coloring
-19. **Complete Skill System**
-    - Skill registry + routing parser
-    - Support user-defined skills (e.g. `/tdd`, `/review`)
-20. **Verification Loop**
-    - Auto-run `mvn compile` or test suite after code changes
-    - Feed errors back to the LLM for automatic fixing
-21. ✅ **MCP Client Support**
-    - `McpClient` connects via STDIO transport with JSON-RPC protocol
-    - `McpCapability` registers remote tools into local `ToolRegistry` automatically
-    - Configurable via `AppConfig.mcpServers` (command, args, env)
+### 3. Tools & External Integration
+| Feature | Status | Notes |
+|---------|:------:|-------|
+| Shell execution | ✅ | `ExecTool`, cross-platform, configurable timeout |
+| File read | ✅ | `read_file` with line-range / offset |
+| File write (create only) | ✅ | `write_file` refuses to overwrite |
+| File edit | ✅ | `edit_file` exact-string replacement |
+| File search | ✅ | `search_files` regex + glob filter |
+| Directory listing | ✅ | `list_directory` |
+| MCP client | ✅ | STDIO + JSON-RPC, auto-registers remote tools as local |
+| Tool-result diff / syntax view | ⏳ | Currently shown as plain text |
+| Browser / screenshot tools | ⏳ | Playwright / Selenium integration |
 
-### Phase 5: Ecosystem & Extensibility
-22. **Multi-Agent Coordination**
-    - Support sub-agent / dedicated loop delegation on top of the existing Hook system
-23. **Export / Share**
-    - Export conversation as Markdown file
-    - Shareable links (requires backend session persistence)
-25. **Browser Tools**
-    - Screenshot and interaction validation based on Playwright or Selenium
-26. **Multimodal Input**
-    - Image and file upload for vision-capable models
+### 4. Prompt Engineering
+| Feature | Status | Notes |
+|---------|:------:|-------|
+| Environment-aware base prompt | ✅ | Injects identity, time, OS, working directory |
+| AGENTS.md auto-injection | ✅ | Reads project-local `AGENTS.md` |
+| Compaction summary injection | ✅ | `SummaryPromptPlugin` writes summary into system prompt |
+| Skill description injection | ⚠️ | Descriptions injected; no `/skill` routing yet |
+| Task status injection | ✅ | `TaskStatusPromptPlugin` keeps the LLM in sync with todos |
+| Plan injection | ✅ | `PlanPromptPlugin` writes confirmed plan into the main loop |
+| Subagent isolated prompt | ✅ | `SubagentPromptPlugin` |
+
+### 5. Commands & Input Routing
+| Feature | Status | Notes |
+|---------|:------:|-------|
+| `Command` interface + `CommandRegistry` | ✅ | Dynamic registration |
+| Built-in commands | ✅ | `/exit`, `/new`, `/compact`, `/model`, `/help`, `/plan`, `/cancel`, `/stop`, `/tasks` |
+| User-level JSON commands | ✅ | `~/.coloop/commands/*.json` for static / shell commands |
+| Markdown prompt commands | ✅ | YAML frontmatter + `$ARGUMENTS` interpolation |
+| Project-local override | ✅ | `./.coloop/commands/` wins on name collision |
+| Slash autocomplete | ✅ | Backend pushes command list; frontend fuzzy palette + keyboard nav |
+
+### 6. Context Management
+| Feature | Status | Notes |
+|---------|:------:|-------|
+| `TokenEstimator` | ✅ | ~1.5 chars/token for Chinese, ~0.25 for non-Chinese |
+| Per-model `maxContextSize` | ✅ | Accepts `100k` / `200k` / `1m` / raw integer |
+| Manual compaction | ✅ | `/compact` |
+| Auto-compaction at 80% | ✅ | Keeps last 2 turns |
+| Live context-usage display | ✅ | Per-session bar + per-subagent bars in the Web UI |
+
+### 7. Plan Mode
+| Feature | Status | Notes |
+|---------|:------:|-------|
+| Read-only planning loop | ✅ | `/plan` runs an isolated AgentLoop with read/search/list/exec tools only |
+| Plan stored in state | ✅ | `PlanTask` data model in `ConversationState` |
+| Injection into main loop | ✅ | `PlanInjectionHook` on user confirmation |
+| Cancel pending plan | ✅ | `/cancel` |
+
+### 8. Session History & Persistence
+| Feature | Status | Notes |
+|---------|:------:|-------|
+| In-memory cross-turn history | ✅ | `AgentLoop` keeps the message list across `chat()` calls |
+| File-backed session store | ✅ | `FileSystemHistoryStore` writes messages + metadata |
+| History recording hook | ✅ | `HistoryRecordingHook` captures lifecycle events |
+| Sidebar history list | ✅ | Accordion sidebar; click to restore |
+| Subagent registry restoration | ✅ | Subagent state replays with the session |
+| Context-usage persistence | ✅ | Survives page refresh |
+| Markdown export | ⏳ | |
+| Shareable links | ⏳ | Requires server-side sharing |
+| In-conversation search | ⏳ | |
+
+### 9. Multi-Agent Coordination
+| Feature | Status | Notes |
+|---------|:------:|-------|
+| Subagent data model | ✅ | `SubagentInstance` |
+| Thread-safe registry | ✅ | `SubagentRegistry` with createOrReplace / clear |
+| Create / replace tool | ✅ | `AgentTool` |
+| Continue-conversation tool | ✅ | `SendMessageTool` appends to existing subagent |
+| Per-agent state isolation | ✅ | Independent message lists, context bars, hooks |
+| Event routing | ✅ | `SubagentLoggingHook` pushes per-agent events to the WebSocket |
+| Agent sidebar | ✅ | Lists running subagents and status |
+| Topology canvas | ✅ | Nodes + edges + status labels |
+| Group-chat mode | ✅ | Multi-agent conversation view |
+| Combined Mode UI | ✅ | Switch between chat / topology / group chat |
+
+### 10. Task Management
+| Feature | Status | Notes |
+|---------|:------:|-------|
+| Task data model | ✅ | `Task` + `TaskStatus` |
+| Task tools | ✅ | `TaskCreateTool` / `TaskUpdateTool` / `TaskGetTool` / `TaskListTool` |
+| `/tasks` command | ✅ | CLI + Web display |
+| Status prompt injection | ✅ | `TaskStatusPromptPlugin` |
+| Display hook | ✅ | `TaskDisplayHook` writes task cards to the WebSocket |
+| 3+ step threshold | ✅ | Tools only activate for multi-step work |
+| Main-agent restriction | ✅ | Subagents do not manage tasks |
+
+### 11. Web UI
+| Feature | Status | Notes |
+|---------|:------:|-------|
+| WebSocket realtime chat | ✅ | Auto-reconnect + connection status indicator |
+| Streaming incremental render | ✅ | Debounced (100 ms / 50 chars) + blinking cursor |
+| Markdown rendering | ✅ | `marked.js` |
+| Code syntax highlighting | ✅ | `highlight.js` |
+| XSS sanitization | ✅ | `DOMPurify` |
+| Thinking cards | ✅ | `<think>` tag extraction, collapsible |
+| 9 themes + theme gallery | ✅ | All themes adapt code blocks and sidebar sections |
+| Slash command palette | ✅ | Fuzzy match + keyboard navigation |
+| History sidebar | ✅ | Accordion list, restore on click |
+| Agent sidebar | ✅ | Subagent status |
+| Topology / group-chat / combined mode | ✅ | Graph view canvas |
+| Model fallback toast | ✅ | Shown when subagent model key is unknown |
+| Task display cards | ✅ | Shared rendering with CLI |
+| Message actions | ⏳ | Copy / regenerate / edit-and-rerun |
+| Settings panel | ⏳ | Temperature, font size, stream toggle, etc. |
+| Welcome / empty state | ⏳ | Intro + quick-start examples |
+| Tool-result visualization | ⏳ | Diff / line numbers / terminal-styled exec output |
+| Skill routing | ⏳ | Today only the description is injected |
+| In-conversation search | ⏳ | Cmd+F over current chat |
+| Multimodal upload | ⏳ | Image / file input |
+
+### 12. Voice Input (independent Python service)
+| Feature | Status | Notes |
+|---------|:------:|-------|
+| faster-whisper engine | ✅ | Multiple model sizes; CPU or CUDA |
+| EnergyVAD | ✅ | RMS-based voice activity detection |
+| Multiple recognition modes | ✅ | `realtime` / `realtime_final` / `final_only` |
+| Strategy interfaces | ✅ | `TranscriptionStrategy` + `CorrectionStrategy` |
+| `VoiceFactory` assembly | ✅ | Config-driven strategy creation |
+| Streaming corrections | ✅ | Real-time fix-ups during recognition |
+| LLM post-correction | ✅ | Reuses `coloop-agent-setting.json` model config |
+| HTTP / WebSocket transcription adapters | ✅ | Pluggable backends beyond local Whisper |
+| Liquid-glass UI | ✅ | One-tap mic + waveform visualization |
+| Push to agent server | ✅ | Streams transcribed text via WebSocket |
+
+### 13. Configuration
+| Feature | Status | Notes |
+|---------|:------:|-------|
+| `${VAR}` env-var interpolation | ✅ | API keys, URLs, etc. |
+| JSON line / block comments | ✅ | `//` and `/* */` |
+| Model `description` field | ✅ | Surfaced via UI + `ListModelsTool` |
+| Global `defaultModel` | ✅ | Used when subagent omits `model` |
+| `maxContextSize` unit suffix | ✅ | `k` / `m` / raw integer |
+| MCP server config | ✅ | command + args + env (`env` supports `${models.*.apiKey}`) |
+| Voice module config | ✅ | Transcription/correction strategies, recognition mode, coloop WS URL |
 
 ---
 
@@ -334,7 +428,7 @@ Compared to mature tools like Claude Code, Aider, Cline, and Codex CLI, `coloop-
 
 > **Keep the core minimal; let capabilities expand infinitely.**
 
-`coloop-agent` is not trying to become a second Claude Code. It aims to be a **transparent, understandable, and hackable** Agent Loop kernel. Whether you want to understand how a Coding Agent works under the hood, or build a tailored agent for your team from scratch, this is the best place to start.
+`coloop-agent` is not trying to become a second Claude Code. It aims to be a **transparent, understandable, and hackable** Agent Loop platform. The kernel stays small enough to read in an afternoon; new capabilities (subagents, history, voice, MCP) plug into well-defined interfaces without modifying the core. Whether you want to understand how a Coding Agent works under the hood, or build a tailored agent for your team from scratch, this is the best place to start.
 
 ---
 

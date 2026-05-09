@@ -1,332 +1,426 @@
 # coloop-agent
 
-一个**可插拔、模块隔离的轻量级 AGI Agent 底座**，基于 Java 21 + Maven 构建，目标是打磨出一个极简但强大的核心 Agent Loop 内核，服务于 **Vibe Coding** 与 **Spec Coding** 场景。
+一个**可插拔、模块隔离的轻量级 Java AGI Agent 平台**——极简但强大的核心 Agent Loop 内核，配合 Spring Boot Web UI 与独立的语音输入服务，专为 **Vibe Coding** 与 **Spec Coding** 场景打造。
 
 [English](README.md) | 简体中文
+
+---
+
+## 仓库结构
+
+`coloop-agent` 是一个 Maven 多模块项目，外加一个独立的 Python 服务：
+
+```
+coloop-agent/
+├── coloop-agent-core/    ← Java agent 内核：core/ + capability/ + runtime/ + entry/
+├── coloop-agent-server/  ← Spring Boot WebSocket 服务端 + Web UI（依赖 core）
+├── coloop-agent-voice/   ← 独立 Python 语音输入服务（faster-whisper）
+├── docs/                 ← 设计稿、实现计划、参考资料
+└── pom.xml               ← 父 POM（Java 17，Spring Boot 3.2.5）
+```
+
+两个 Java 模块共用 `coloop-agent-setting.json`（位于 `coloop-agent-core/src/main/resources/`），统一管理模型、MCP、语音配置。
 
 ---
 
 ## 当前功能
 
 ### 1. 核心 Agent Loop
-- `AgentLoop.chat()`：经典的 `while(true)` 循环，调用 LLM → 解析 Tool Calls → 执行工具 → 将结果回传给 LLM，直到获得最终文本回复。
+- `AgentLoop.chat()`：经典 `while(true)` 循环，调用 LLM → 解析 Tool Calls → 执行工具 → 将结果回传给 LLM，直到获得最终文本回复。
 - `AgentLoop.chatStream()`：SSE 流式模式，通过 `LLMProvider.StreamConsumer` 回调逐字返回内容，支持流式过程中的 Tool Call 检测与累积。
-- 支持最大迭代次数限制（默认 10 轮），防止无限循环。
+- `AgentLoopThread`：线程包装器，供服务端实现可中断的运行（`/stop` 命令）。
+- 支持最大迭代次数限制（默认 50 轮），防止无限循环。
 
 ### 2. 洋葱式四层架构
 ```
-core/           ← 教学核心，永远精简：AgentLoop、抽象接口、数据模型
-capability/     ← 可插拔能力模块：Provider、Tool、PromptPlugin、Hook
-runtime/        ← 动态组装中枢：CapabilityLoader、StandardCapability、AgentRuntime
+core/           ← 教学核心，永远精简：AgentLoop、抽象接口、数据模型、ConversationState
+capability/     ← 可插拔能力模块：Provider、Tool、PromptPlugin、Hook、Command、MCP、Subagent、Task、Plan、History
+runtime/        ← 动态组装中枢：CapabilityLoader、StandardCapability、CompositeCapability、AgentRuntime
 entry/          ← 多入口：MinimalDemo（教学）、CliApp（完整功能）
 ```
 
 ### 3. 项目结构
 
-关键包与类说明：
+`coloop-agent-core` 关键包与类：
 
 ```
 com.coloop.agent
-├── core/                       ← 教学核心，永远保持精简
+├── core/                                ← 教学核心，永远保持精简
 │   ├── agent/
-│   │   ├── AgentLoop.java      ← 核心 while 循环：LLM → 解析 Tool Calls → 执行 → 回传
-│   │   └── AgentHook.java      ← 生命周期钩子接口
+│   │   ├── AgentLoop.java               ← 核心 while 循环：LLM → 解析 Tool Calls → 执行 → 回传
+│   │   ├── AgentLoopThread.java         ← 服务端使用的可中断 Loop 包装器
+│   │   └── AgentHook.java               ← 生命周期钩子（含 onStreamChunk、onSubagent*）
 │   ├── context/
-│   │   ├── ContextCompactor.java      ← 上下文压缩策略接口
-│   │   ├── ConversationSummary.java   ← 摘要数据对象
-│   │   └── ConversationState.java     ← 跨组件会话状态共享
-│   ├── message/
-│   │   └── MessageBuilder.java ← 消息构建抽象接口
-│   ├── prompt/
-│   │   └── PromptPlugin.java   ← 提示词生成抽象接口
-│   ├── util/
-│   │   └── TokenEstimator.java ← 轻量级 Token 估算工具
-│   ├── provider/
-│   │   ├── LLMProvider.java    ← LLM 提供商接口
-│   │   ├── LLMResponse.java
-│   │   └── ToolCallRequest.java
-│   ├── tool/
-│   │   ├── Tool.java           ← 工具接口
-│   │   ├── BaseTool.java
-│   │   └── ToolRegistry.java   ← 工具注册与调度
-│   ├── command/                ← 命令系统核心接口
-│   │   ├── Command.java
-│   │   ├── CommandRegistry.java
-│   │   ├── CommandContext.java
-│   │   ├── CommandResult.java
-│   │   └── CommandExitException.java
-│   └── interceptor/
-│       └── InputInterceptor.java ← 输入拦截器，快捷指令直接短路返回
-├── capability/                 ← 可插拔能力实现
-│   ├── context/
-│   │   └── LLMContextCompactor.java  ← LLM 生成摘要的默认压缩实现
-│   ├── message/
-│   │   └── StandardMessageBuilder.java ← OpenAI 格式消息组装器
-│   ├── prompt/
-│   │   ├── PromptSegment.java        ← 系统提示词段落枚举
-│   │   ├── BasePromptPlugin.java
-│   │   ├── SkillPromptPlugin.java
-│   │   ├── AgentsMdPromptPlugin.java
-│   │   └── SummaryPromptPlugin.java  ← 将摘要注入 system prompt
-│   ├── provider/
-│   │   ├── openai/
-│   │   │   └── OpenAICompatibleProvider.java
-│   │   └── mock/
-│   │       └── MockProvider.java
-│   ├── tool/
-│   │   └── exec/
-│   │       └── ExecTool.java
-│   ├── hook/
-│   │   └── LoggingHook.java
-│   └── command/                ← 命令系统实现
-│       ├── CommandInterceptor.java     ← 命令拦截器（InputInterceptor 实现）
-│       ├── CommandScanner.java         ← 用户自定义命令目录扫描器（JSON + Markdown）
-│       ├── MdCommandParser.java        ← 解析 .md 命令定义（YAML frontmatter + 提示词模板）
-│       ├── MdPromptCommand.java        ← Markdown 提示词命令：渲染 $ARGUMENTS 并转发给 LLM
-│       ├── MdCommandDefinition.java    ← 解析后的 markdown 命令元数据记录
-│       ├── ExitCommand.java
-│       ├── NewSessionCommand.java
-│       ├── CompactCommand.java
-│       ├── ModelCommand.java
-│       └── HelpCommand.java
-├── runtime/                    ← 动态组装中枢
-│   ├── CapabilityLoader.java   ← 链式组装器
-│   ├── StandardCapability.java ← 内置能力目录枚举
-│   ├── AgentRuntime.java       ← 组装完成后的可运行代理
-│   └── config/
-│       └── AppConfig.java
-└── entry/                      ← 入口层
-    ├── MinimalDemo.java        ← 教学入口（Mock 模式）
-    └── CliApp.java             ← 完整入口（真实 API）
+│   │   ├── ContextCompactor.java        ← 上下文压缩策略接口
+│   │   ├── ConversationSummary.java     ← 摘要数据对象
+│   │   ├── ConversationState.java       ← 跨组件会话状态（含 SubagentRegistry、计划）
+│   │   └── PlanTask.java                ← 计划模式下的任务记录
+│   ├── history/                         ← 新增：会话持久化基础
+│   │   ├── HistoryMessage.java
+│   │   ├── SessionMeta.java
+│   │   ├── ConversationHistoryStore.java
+│   │   ├── FileSystemHistoryStore.java
+│   │   └── HistoryRecordingHook.java
+│   ├── command/                         ← 命令系统核心接口
+│   │   ├── Command.java / CommandRegistry.java / CommandContext.java
+│   │   ├── CommandResult.java / CommandExitException.java
+│   ├── interceptor/InputInterceptor.java
+│   ├── message/MessageBuilder.java
+│   ├── prompt/PromptPlugin.java
+│   ├── provider/{LLMProvider, LLMResponse, ToolCallRequest}.java
+│   ├── task/{Task, TaskStatus, TaskStore}.java   ← 新增：任务数据模型
+│   ├── tool/{Tool, BaseTool, ToolRegistry}.java
+│   └── util/TokenEstimator.java
+├── capability/                          ← 可插拔能力实现
+│   ├── command/                         ← 内置命令 + 扫描器
+│   │   ├── ExitCommand / NewSessionCommand / CompactCommand
+│   │   ├── ModelCommand / HelpCommand / StopCommand
+│   │   ├── CommandInterceptor / CommandScanner
+│   │   ├── MdCommandParser / MdPromptCommand / MdCommandDefinition
+│   ├── context/LLMContextCompactor.java
+│   ├── hook/{LoggingHook, ClaudeCodeStyleLoggingHook, AnsiColors}.java
+│   ├── mcp/                             ← MCP 客户端（STDIO + JSON-RPC）
+│   │   ├── McpCapability / McpClient / McpTransport
+│   │   ├── McpToolAdapter / McpToolDefinition
+│   │   └── JsonRpcRequest / JsonRpcResponse / McpException
+│   ├── message/StandardMessageBuilder.java
+│   ├── plan/                            ← /plan 模式
+│   │   ├── PlanCapability / PlanCommand / CancelCommand
+│   │   ├── PlanInjectionHook / PlanPromptPlugin
+│   ├── prompt/{Base, AgentsMd, Skill, Summary}PromptPlugin + PromptSegment
+│   ├── provider/{openai/OpenAICompatibleProvider, mock/MockProvider}
+│   ├── subagent/                        ← 新增：命名子 Agent 系统
+│   │   ├── SubagentInstance / SubagentRegistry / SubagentEventListener
+│   │   ├── SubagentLoopFactory / SubagentPromptPlugin
+│   │   ├── AgentTool / SendMessageTool / ListModelsTool
+│   │   └── SubagentManagementCapability
+│   ├── task/                            ← 新增：任务管理能力
+│   │   ├── TaskCreateTool / TaskUpdateTool / TaskGetTool / TaskListTool
+│   │   ├── TaskService / InMemoryTaskStore
+│   │   ├── TaskStatusPromptPlugin / TaskDisplayHook
+│   │   ├── TaskManagementCapability
+│   │   └── command/TasksCommand
+│   └── tool/
+│       ├── exec/ExecTool.java
+│       └── filesystem/{Read, Write, Edit, Search, ListDirectory}FileTool
+├── runtime/
+│   ├── CapabilityLoader.java            ← 链式组装器，支持 snapshotTools()
+│   ├── CompositeCapability.java         ← 在一个入口下打包多个能力
+│   ├── StandardCapability.java          ← 内置能力目录枚举
+│   ├── runtime/{AgentRuntime, LoopInputAgentRuntime}.java
+│   └── config/AppConfig.java            ← 加载 coloop-agent-setting.json（支持 JSON 注释）
+└── entry/
+    ├── MinimalDemo.java                 ← 教学入口（Mock 模式）
+    └── CliApp.java                      ← 完整 CLI 入口（真实 API + 命令 + MCP）
 ```
+
+`coloop-agent-server` 关键包：
+
+```
+com.coloop.agent.server
+├── config/        ← Spring 配置
+├── controller/    ← REST 接口（如 /api/config）
+├── dto/           ← WebSocketMessage，含所有事件类型的工厂方法
+├── hook/          ← AbstractWebSocketLoggingHook + WebSocketLoggingHook + SubagentLoggingHook
+├── service/       ← AgentService：每会话的 AgentRuntime 组装
+└── websocket/     ← AgentWebSocketHandler：聊天/历史/子 Agent/Toast 路由
+```
+
+前端（位于 `coloop-agent-server/src/main/resources/static/`）：`index.html`、`chat.js`、`topology.js`、`group-chat.js`、`graph-state.js`、themes/，以及用于预览全部 9 套主题的 `theme-gallery.html`。
 
 ### 4. 链式能力组装
 通过 `CapabilityLoader` 以链式 API 灵活组装 Agent：
 ```java
 new CapabilityLoader()
     .withCapability(StandardCapability.EXEC_TOOL, config)
+    .withCapability(StandardCapability.READ_FILE_TOOL, config)
+    .withCapability(StandardCapability.WRITE_FILE_TOOL, config)
+    .withCapability(StandardCapability.EDIT_FILE_TOOL, config)
+    .withCapability(StandardCapability.MCP_CLIENT, config)
+    .withCapability(StandardCapability.TASK_MANAGEMENT, config)
     .withCapability(StandardCapability.BASE_PROMPT, config)
     .withCapability(StandardCapability.LOGGING_HOOK, config)
     .build(provider, config);
 ```
 
-### 4. 内置能力
+### 5. 内置能力
 | 能力 | 说明 |
 |------|------|
 | **ExecTool** | Shell 命令执行（带超时），支持 Windows/Linux 跨平台 |
+| **文件系统工具** | `read_file`、`write_file`、`edit_file`、`search_files`、`list_directory`（位于 `capability/tool/filesystem`） |
 | **BasePromptPlugin** | 注入基础系统提示（身份、时间、工作目录、平台信息） |
 | **SkillPromptPlugin** | 扫描并注入可用技能说明到系统提示 |
 | **AgentsMdPromptPlugin** | 自动读取工作目录下的 `AGENTS.md` 并注入系统提示 |
-| **LoggingHook** | 在 Agent Loop 关键生命周期节点打印调试日志 |
-| **流式输出（后端）** | `LLMProvider.chatStream()` 接口 + SSE 逐字流式传输；`OpenAICompatibleProvider` 实现真实 SSE；支持流式过程中检测并累积 Tool Call |
-| **上下文压缩** | `/compact` 将历史消息压缩为摘要并注入 system prompt；自动压缩（超 80% 阈值时保留最近 2 轮）；支持模型级上下文配置（如 minimax 200k / glm 100k） |
-| **Command System** | 动态 `Command` 接口 + `CommandRegistry`；内置 `/exit`、`/new`、`/compact`、`/model`、`/help`；支持从 `~/.coloop/commands/` 和 `./.coloop/commands/` 扫描用户自定义命令（JSON 定义静态/Shell 命令，**Markdown** 定义提示词模板并支持 `$ARGUMENTS` 插值；项目本地命令覆盖用户命令） |
+| **LoggingHook / ClaudeCodeStyleLoggingHook** | 在 Agent Loop 关键生命周期节点打印调试日志，可使用 Claude Code 风格格式 |
+| **流式输出** | `LLMProvider.chatStream()` + `OpenAICompatibleProvider` 真实 SSE；流式过程中检测并累积 Tool Call |
+| **上下文压缩** | `/compact` 将历史消息压缩为摘要并注入 system prompt；超 80% Token 阈值时自动压缩；模型级 `maxContextSize`（如 minimax 200k、glm 100k） |
+| **命令系统** | 动态 `Command` 接口 + `CommandRegistry`；内置 `/exit`、`/new`、`/compact`、`/model`、`/help`、`/plan`、`/cancel`、`/stop`、`/tasks`；支持从 `~/.coloop/commands/` 与 `./.coloop/commands/` 扫描用户自定义命令（JSON 定义静态/Shell，**Markdown** 定义提示词模板并支持 `$ARGUMENTS`；项目本地命令覆盖用户级） |
+| **计划模式（Plan Mode）** | `/plan` 进入只读规划模式，使用独立 AgentLoop（仅 read/search/list/exec 工具）；计划存入 `ConversationState`，确认后注入主循环；`/cancel` 取消 |
+| **MCP 客户端** | `McpClient` 通过 STDIO + JSON-RPC 连接 MCP Server；`McpCapability` 自动将远程工具注册到本地 ToolRegistry；通过 `AppConfig.mcpServers` 配置 |
+| **子 Agent 系统（新）** | 命名多 Agent 协作：`AgentTool` 创建/替换子 Agent，`SendMessageTool` 向已有子 Agent 追加消息，`ListModelsTool` 查询可用模型。`SubagentRegistry` 管理生命周期，`SubagentLoggingHook` 将每个子 Agent 的事件路由到 WebSocket。子 Agent 可指定不同 `model`，未知 key 时通过 toast 提示 fallback。 |
+| **任务管理（新）** | `TaskCreateTool / TaskUpdateTool / TaskGetTool / TaskListTool` 加上 `TaskStatusPromptPlugin` 和 `TaskDisplayHook`；仅在 ≥3 步时触发，仅限主 Agent 使用；`/tasks` 命令在 CLI/Web 中展示 |
+| **会话历史持久化（新）** | `ConversationHistoryStore` + `FileSystemHistoryStore` 将会话元数据与消息写入磁盘；`HistoryRecordingHook` 捕获生命周期事件；Web 侧边栏列出历史会话，点击即可恢复上下文 |
 
-### 5. 输入拦截器（InputInterceptor）
-在 LLM 调用前拦截用户输入，可用于实现快捷指令（如 `/compact`）、Skill 系统、权限确认等直接返回功能。
+### 6. 输入拦截器（InputInterceptor）
+在 LLM 调用前拦截用户输入，驱动 `/` 命令快捷指令、计划模式、Skill 路由、权限确认等直接返回功能。
 
-### 6. Provider 支持
+### 7. Provider 支持
 - **MockProvider**：预置响应序列，用于教学、测试、无网环境。
-- **OpenAICompatibleProvider**：支持任意 OpenAI 兼容 API（如 OpenRouter、自托管 vLLM）。
+- **OpenAICompatibleProvider**：支持任意 OpenAI 兼容 API（如 OpenRouter、Minimax、GLM、自托管 vLLM），完整支持 SSE 流式输出。
 
-### 7. 配置中心
-`AppConfig` 支持从环境变量或 JSON 配置文件加载，优先读取 `COLIN_CODE_*` 前缀变量，回退到 `OPENAI_*`：
-- `COLIN_CODE_OPENAI_MODEL`
-- `COLIN_CODE_OPENAI_API_KEY`
-- `COLIN_CODE_OPENAI_API_BASE`
-- `COLIN_CODE_MAX_CONTEXT` / `MAX_CONTEXT_SIZE`
+### 8. 配置中心
+`AppConfig` 从 `coloop-agent-core/src/main/resources/coloop-agent-setting.json` 加载（支持 `${VAR}` 环境变量插值），并支持 **JSON 行注释与块注释**（`//` 与 `/* */`）。结构：
 
-上下文大小支持单位后缀：`100k`、`200k`、`1m`，也可直接写数字（如 `8192`）。可在全局或模型级别配置：
-```json
+```jsonc
 {
-  "maxContextSize": "100k",
+  // 全局默认模型 — 当 subagent 未指定 model 时使用
+  "defaultModel": "minimax",
+  "maxIterations": 50,
+  "execTimeoutSeconds": 30,
+
   "models": {
-    "minimax": { "maxContextSize": "200k" },
-    "glm-4-free": { "maxContextSize": "100k" }
+    "minimax": {
+      "description": "主模型 — 推理能力强，适合复杂任务",
+      "apiKey": "${COLIN_CODE_MINIMAX_API_KEY}",
+      "apiBase": "https://api.minimaxi.com/v1",
+      "model": "MiniMax-M2.7",
+      "maxContextSize": "200k"
+    },
+    "glm-4-free": {
+      "description": "免费轻量模型 — 适合简单任务",
+      "apiKey": "${COLIN_CODE_GLM_API_KEY}",
+      "apiBase": "https://open.bigmodel.cn/api/paas/v4",
+      "model": "GLM-4.7-Flash",
+      "maxContextSize": "100k"
+    }
+  },
+
+  "mcpServers": {
+    "MiniMax": { "command": "uvx", "args": ["minimax-coding-plan-mcp"], "env": { ... } }
+  },
+
+  "voice": {
+    "transcription": { "strategy": "local_whisper", "strategies": { ... } },
+    "correction":    { "strategy": "llm",           "strategies": { ... } },
+    "language": "zh",
+    "recognitionMode": "realtime",
+    "coloopServer": { "wsUrl": "ws://localhost:8080/ws/agent" }
   }
 }
 ```
+
+`maxContextSize` 支持单位后缀（`100k`、`200k`、`1m`），也可直接写数字。
 
 ---
 
 ## 快速开始
 
+### 编译全部模块
+
 ```bash
-# 编译
-mvn compile
-
-# 运行教学 Demo（Mock 模式，无需 API Key）
-mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.MinimalDemo"
-
-# 运行真实 API 模式（需先设置环境变量）
-export COLIN_CODE_OPENAI_API_KEY="sk-..."
-export COLIN_CODE_OPENAI_API_BASE="https://api.openai.com/v1"
-export COLIN_CODE_OPENAI_MODEL="gpt-4o"
-mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
+mvn clean install -DskipTests
 ```
 
----
+### 运行教学 Demo（无需 API Key）
 
-## 核心差异分析（聚焦 Agent Loop 内核）
+```bash
+cd coloop-agent-core
+mvn exec:java -Dexec.mainClass="com.coloop.agent.entry.MinimalDemo"
+```
 
-与 Claude Code、Aider、Cline、Codex CLI 等成熟工具相比，`coloop-agent` 目前**只聚焦核心 Loop**，以下是差异盘点（侧重 Vibe Coding / Spec Coding 体验）：
+### 运行 CLI（真实 API）
 
-### 我们已具备的（优势）
-| 特性 | 说明 |
-|------|------|
-| **极简内核** | 无 IDE 依赖、无重型框架，代码行数少，适合学习和二次开发 |
-| **纯 Java 生态** | 对 Java 开发者友好，便于在企业级 Java 环境中集成 |
-| **清晰的插件边界** | `Tool` / `PromptPlugin` / `AgentHook` / `InputInterceptor` 接口明确，扩展不侵入核心 |
-| **环境感知提示** | BasePrompt 自动注入时间、OS、工作目录，减少 LLM 的”幻觉” |
-| **流式输出** | 完整端到端：后端 `chatStream()` + `OpenAICompatibleProvider` SSE，前端增量 Markdown 渲染（防抖 100ms/50 字符）+ 闪烁光标 |
+```bash
+export COLIN_CODE_MINIMAX_API_KEY="sk-..."
+# 或 COLIN_CODE_OPENAI_API_KEY / COLIN_CODE_GLM_API_KEY 等
+cd coloop-agent-core
+mvn exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
+```
 
-### 我们缺失的（对 Vibe Coding / Spec Coding 有高价值）
+### 运行 Web UI 服务端
 
-#### 后端 / 核心 Loop
-| 缺失能力 | 影响说明 | 优先级 |
-|----------|----------|--------|
-| **文件系统工具** | ✅ 已实现：`read_file`、`write_file`、`edit_file`、`search_files`、`list_directory` | P0 |
-| **对话历史持久化** | ✅ 已实现：`AgentLoop` 维护跨轮次消息列表 | P0 |
-| **流式输出（后端）** | ✅ 已实现：`LLMProvider.chatStream()` + `OpenAICompatibleProvider` SSE 逐字输出 | P0 |
-| **上下文压缩 / 滑动窗口** | ✅ 已实现：`/compact` 命令 + 自动压缩（80% 阈值）+ TokenEstimator + 模型级上下文配置 | P1 |
-| **计划模式（Plan Mode）** | ✅ 已实现：`/plan` 进入只读规划模式，确认后注入计划执行，`/cancel` 取消 | P1 |
-| **并行 Tool Calls** | OpenAI API 支持一次请求返回多个 tool call，但我们目前串行执行 | P1 |
-| ~~Git 集成~~ | 已由 `ExecTool` 覆盖（`git diff`、`git status`、`git commit` 等） | — |
-| ~~Checkpoint / 回滚~~ | 已由 `ExecTool` 覆盖（Git 操作或手动文件备份） | — |
-| **MCP（Model Context Protocol）支持** | ✅ 已实现：`McpClient` 通过 STDIO + JSON-RPC 连接；`McpCapability` 将远程工具暴露为本地 Tool | P2 |
-| **验证循环（Verify-before-completion）** | 改完代码后不自动编译/运行/测试，无法自证正确性 | P2 |
-| **多 Agent 协调** | 单一 Loop 完成所有任务，无法拆分为 Planner + Executor + Reviewer 协作 | P2 |
-| **浏览器/截图能力** | 无法验证 Web UI 效果，限制前端开发场景 | P3 |
-| **会话恢复** | 进程退出后无法恢复之前的对话状态和未完成的任务 | P3 |
+```bash
+cd coloop-agent-server
+mvn spring-boot:run
+# 浏览器打开 http://localhost:8080/
+```
 
-#### 前端 / Web UI
-| 缺失能力 | 影响说明 | 优先级 |
-|----------|----------|--------|
-| **流式输出（前端）** | ✅ 已实现：`AgentService` 使用 `chatStream()`；WebSocket 推送 `stream_chunk` 消息；前端增量渲染，支持防抖 Markdown + 代码高亮 + 闪烁光标 | P0 |
-| **Markdown 渲染** | ✅ 已实现：集成 `marked.js` 渲染粗体、列表、链接、表格、代码块；`<think>` 标签提取为可折叠卡片 | P0 |
-| **代码语法高亮** | ✅ 已实现：集成 `highlight.js`，全部 9 套主题均适配代码块样式 | P0 |
-| **命令系统** | ✅ 已实现：`Command` 接口 + `CommandRegistry` + `CommandInterceptor`；内置 `/exit`、`/new`、`/compact`、`/model`、`/help`；支持从 `~/.coloop/commands/` 和 `./.coloop/commands/` 扫描用户自定义命令（JSON + Markdown 提示词模板，支持 `$ARGUMENTS`） | P1 |
-| **斜杠命令自动补全** | ✅ 已实现：后端在 WebSocket 连接时推送可用命令列表；前端输入 `/` 弹出模糊匹配的命令面板并显示描述；支持键盘上下选择、Enter 确认、Esc 关闭 | P1 |
-| **会话历史侧边栏** | 仅有一个内存会话，刷新页面即丢失，无 localStorage 持久化 | P1 |
-| **模型切换** | `AppConfig` 支持多模型，但用户无法在运行时从 UI 切换 | P1 |
-| **消息操作** | 聊天气泡上无复制、重新生成、编辑消息等操作 | P1 |
-| **设置面板** | 无 UI 调节温度、max_tokens、字体大小、流式开关 | P2 |
-| **欢迎页 / 空状态** | 新会话显示空白聊天区，无介绍和快速启动示例 | P2 |
-| **工具结果可视化** | 文件读取、编辑、搜索结果均为纯文本，无 diff 视图、行号、匹配高亮 | P2 |
-| **Skill 执行框架** | `SkillPromptPlugin` 只注入说明，无真正的 `/skill` 路由和参数解析 | P2 |
-| **导出 / 分享** | 无法将对话保存为 Markdown 或生成分享链接 | P3 |
-| **会话内搜索** | 无 Cmd+F 搜索当前聊天内容 | P3 |
-| **多模态输入** | 无法上传图片或文件供 LLM 分析 | P3 |
+### 运行语音输入服务（可选）
+
+```bash
+cd coloop-agent-voice
+python -m venv venv && source venv/bin/activate   # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+python main.py
+# 浏览器打开 http://localhost:8000/static/voice-input.html
+```
+
+语音服务通过 `voice.coloopServer.wsUrl` 配置的 WebSocket URL 把识别后的文本流推送给 agent server。
 
 ---
 
-## 路线图
+## 功能总览
 
-### 阶段一：让 Loop 能写代码（后端基础） ✅ 已完成
-1. **文件工具集（Filesystem Tools）**
-   - ✅ `read_file`：读取文件内容，支持行号范围、偏移量
-   - ✅ `write_file`：创建新文件（拒绝覆盖已存在文件）
-   - ✅ `edit_file`：基于精确字符串替换的安全编辑
-   - ✅ `search_files`：正则表达式内容搜索，支持 glob 过滤
-   - ✅ `list_directory`：目录 listing
-2. **对话历史持久化** ✅
-   - `AgentLoop` 内部维护消息列表，支持多轮 `chat()`
-3. **流式输出（后端）** ✅
-   - `LLMProvider.chatStream()` 接口，默认退化为同步模式
-   - `OpenAICompatibleProvider` 实现 SSE 逐字输出
-   - 支持流式中的 Tool Call 检测与累积
-4. **Web UI 基础** ✅
-   - 基于 WebSocket 的实时聊天界面
-   - Thinking、Tool Call、Tool Result 可折叠卡片
-   - 9 套主题 + 主题画廊
-   - 自动重连与连接状态指示
+按能力域分组，从底层 Loop 逐步递进到上层 UX。状态：✅ 已实现 · ⚠️ 部分实现 · ⏳ 计划中。
 
-### 阶段二：前端基础 + 命令系统（当前重点）
-5. **命令系统重构** ✅ 已完成
-   - ✅ 定义 `Command` 接口 + `CommandRegistry` 动态注册
-   - ✅ 将硬编码命令（`/new`、`/exit`）从 `AgentService` 和 `AgentLoopThread` 迁移到注册表
-   - ✅ 实现 `/compact`、`/model` 等内置命令
-   - ✅ 目录扫描加载用户自定义命令（`~/.coloop/commands/`）和项目本地命令（`./.coloop/commands/`，同名时项目本地优先）
-   - ✅ **Markdown 提示词命令**：`.md` 文件支持 YAML frontmatter + `$ARGUMENTS` 插值，执行时渲染并转发给 LLM
-   - ✅ 将 `CommandInterceptor` 接入 `InputInterceptor`，使 `CapabilityLoader` 可组装
-   - ✅ 覆盖 127 个单元测试，验证核心接口、所有命令实现、拦截器逻辑、扫描器和运行时集成
-6. **流式输出（前端）**
-   - `AgentHook` 接口新增 `onStreamChunk()`，用于逐 token 流式通知
-   - `AgentService` 从 `agentLoop.chat()` 切换到 `agentLoop.chatStream()`
-   - 扩展 `WebSocketLoggingHook`，新增 `onStreamChunk()` 将 SSE 片段通过 WebSocket 推送（`type: stream_chunk`）
-   - 前端 `chat.js`：实时追加文本块到渐增的助手消息气泡，循环结束时完成渲染
-7. **Markdown 渲染 + 代码高亮** ✅ 已完成
-   - ✅ 前端引入 `marked.js` 渲染助手消息
-   - ✅ 引入 `highlight.js` 做代码块语法高亮
-   - ✅ 使用 `DOMPurify` 对渲染的 HTML 做 XSS 过滤
-   - ✅ `<think>` 标签提取为可折叠 Thinking Card
-   - ✅ 全部 9 套主题补充 Markdown 元素与代码块样式
-8. **斜杠命令自动补全** ✅ 已完成
-   - ✅ 后端在 WebSocket 连接时推送可用命令列表
-   - ✅ 前端输入 `/` 弹出模糊匹配的命令面板，显示描述
-   - ✅ 键盘导航（方向键、Enter、Esc）
-9. **模型切换**
-   - 后端在 WebSocket 连接时暴露可用模型
-   - 前端在主题切换器旁添加模型下拉框
-   - 切换时重建该会话的 `LLMProvider` 使用新 `ModelConfig`
-10. **消息操作**
-    - 复制消息到剪贴板
-    - 重新生成最后一条助手回复
-    - 编辑历史用户消息并重新运行 Loop
+### 1. Agent Loop 核心
+| 功能 | 状态 | 说明 |
+|------|:----:|------|
+| 同步 chat 循环 | ✅ | `AgentLoop.chat()` — LLM → 解析 Tool Calls → 执行 → 回传 |
+| 流式 chatStream | ✅ | `chatStream()` SSE 逐字 + 流式中 Tool Call 累积 |
+| 可中断运行 | ✅ | `AgentLoopThread` + `/stop` 命令 |
+| 最大迭代限制 | ✅ | 默认 50 轮，可配置 |
+| 并行 Tool Calls | ⏳ | OpenAI 单次响应支持多个 tool call，目前串行执行 |
+| 验证循环（编译/测试自检） | ⏳ | 改完代码后自动验证并把错误回传 |
 
-### 阶段三：会话管理 + 后端可靠性
-11. **会话历史侧边栏**
-    - localStorage / IndexedDB 持久化会话元数据和消息
-    - 左侧边栏：会话列表，显示标题、时间戳、消息数
-    - 新建 / 删除 / 重命名会话；自动以第一条用户消息生成标题
-    - 点击历史项恢复上下文（将消息重播进 `AgentLoop`）
-12. **计划模式（Plan Mode）** ✅ 已完成
-    - ✅ `/plan` 命令进入只读规划模式，使用独立的 AgentLoop
-    - ✅ 计划仅通过 read/search/list/exec 工具生成
-    - ✅ 计划存入 `ConversationState`，用户确认后注入主循环执行
-    - ✅ `/cancel` 命令取消待执行计划
-13. **并行 Tool Calls**
-    - 一轮 LLM 响应中多个 tool call 并行执行，缩短总耗时
-14. **上下文管理** ✅ 已完成
-    - ✅ `/compact` 命令：将历史消息压缩为摘要并注入 system prompt
-    - ✅ 自动压缩：token 占用超 80% 阈值时自动触发，保留最近 2 轮
-    - ✅ TokenEstimator：基于字符数的轻量级 token 估算（中文 1.5 / 非中文 0.25）
-    - ✅ 模型级上下文配置：支持 `maxContextSize` 字段，单位为无单位/`k`/`m`（如 minimax 配 200k，glm 配 100k，默认 100k）
+### 2. Provider 与模型管理
+| 功能 | 状态 | 说明 |
+|------|:----:|------|
+| MockProvider | ✅ | 预置响应序列，用于教学和离线测试 |
+| OpenAI 兼容 Provider | ✅ | 任意 OpenAI 兼容 API + 真实 SSE 流式 |
+| 多模型配置 | ✅ | `models.*` + 全局 `defaultModel` |
+| 运行时模型切换 | ✅ | `/model` 重建会话的 `LLMProvider` |
+| 子 Agent 独立模型 | ✅ | `AgentTool` 接受 `model` 参数；未知 key 时 toast 提示并回落到默认 |
+| 模型查询工具 | ✅ | `ListModelsTool` 把已配置模型暴露给 LLM |
+| 模型 `description` 元数据 | ✅ | 在 UI 与 `ListModelsTool` 中展示 |
 
-### 阶段四：前端打磨 + 进阶能力
-16. **设置面板**
-    - 温度、max_tokens、流式开关
-    - 字体大小等 UI 偏好
-    - 持久化到 localStorage
-17. **欢迎页 / 空状态**
-    - 新会话显示能力介绍和示例提示
-    - 快速启动按钮（”分析项目结构”、”写一个 Hello World”）
-18. **工具结果可视化**
-    - ReadFileTool：带语法高亮和行号的代码展示
-    - EditFileTool：红绿对比的 diff 视图
-    - SearchFilesTool：高亮匹配行，文件路径可点击
-    - ExecTool：终端风格输出，带退出码颜色
-19. **Skill 系统完整化**
-    - Skill 注册表 + 路由解析
-    - 支持用户自定义 Skill（如 `/tdd`、`/review`）
-20. **验证循环**
-    - 代码修改后自动执行 `mvn compile` 或测试套件
-    - 失败时将错误信息自动回传给 LLM 进行修复
-21. ✅ **MCP Client 支持**
-    - `McpClient` 通过 STDIO 传输 + JSON-RPC 协议连接 MCP Server
-    - `McpCapability` 自动将远程工具注册到本地 `ToolRegistry`
-    - 通过 `AppConfig.mcpServers` 配置（command、args、env）
+### 3. 工具与外部集成
+| 功能 | 状态 | 说明 |
+|------|:----:|------|
+| Shell 执行 | ✅ | `ExecTool`，跨平台，超时可配 |
+| 文件读 | ✅ | `read_file` 支持行号范围 / 偏移 |
+| 文件写（仅创建） | ✅ | `write_file` 拒绝覆盖已存在文件 |
+| 文件编辑 | ✅ | `edit_file` 精确字符串替换 |
+| 文件搜索 | ✅ | `search_files` 正则 + glob 过滤 |
+| 目录列出 | ✅ | `list_directory` |
+| MCP 客户端 | ✅ | STDIO + JSON-RPC，自动把远程工具注册成本地工具 |
+| 工具结果 diff / 语法视图 | ⏳ | 当前为纯文本展示 |
+| 浏览器 / 截图工具 | ⏳ | Playwright / Selenium 集成 |
 
-### 阶段五：生态与可扩展性
-22. **多 Agent 协调**
-    - 在现有 Hook 体系上，支持子 Agent / 专属 Loop 的委派
-23. **导出 / 分享**
-    - 导出对话为 Markdown 文件
-    - 生成可分享链接（需后端会话持久化）
-25. **浏览器工具**
-    - 基于 Playwright 或 Selenium 的截图与操作验证
-26. **多模态输入**
-    - 为支持视觉的模型上传图片和文件
+### 4. Prompt 工程
+| 功能 | 状态 | 说明 |
+|------|:----:|------|
+| 环境感知 BasePrompt | ✅ | 注入身份、时间、OS、工作目录 |
+| AGENTS.md 自动注入 | ✅ | 读取项目本地 `AGENTS.md` |
+| 摘要注入 | ✅ | `SummaryPromptPlugin` 把压缩摘要写入 system prompt |
+| Skill 描述注入 | ⚠️ | 仅注入说明，无 `/skill` 路由 |
+| 任务状态注入 | ✅ | `TaskStatusPromptPlugin` 让 LLM 同步 todo 状态 |
+| 计划注入 | ✅ | `PlanPromptPlugin` 在确认后写入主循环 |
+| 子 Agent 隔离 prompt | ✅ | `SubagentPromptPlugin` |
+
+### 5. 命令与输入路由
+| 功能 | 状态 | 说明 |
+|------|:----:|------|
+| `Command` 接口 + `CommandRegistry` | ✅ | 动态注册 |
+| 内置命令 | ✅ | `/exit`、`/new`、`/compact`、`/model`、`/help`、`/plan`、`/cancel`、`/stop`、`/tasks` |
+| 用户级 JSON 命令 | ✅ | `~/.coloop/commands/*.json` 定义静态 / Shell 命令 |
+| Markdown 提示词命令 | ✅ | YAML frontmatter + `$ARGUMENTS` 插值 |
+| 项目本地命令覆盖 | ✅ | `./.coloop/commands/` 同名优先 |
+| 斜杠自动补全 | ✅ | 后端推送命令列表，前端模糊匹配 + 键盘导航 |
+
+### 6. 上下文管理
+| 功能 | 状态 | 说明 |
+|------|:----:|------|
+| `TokenEstimator` | ✅ | 中文 ~1.5 / 非中文 ~0.25 字符/token |
+| 模型级 `maxContextSize` | ✅ | 接受 `100k` / `200k` / `1m` / 数字 |
+| 手动压缩 | ✅ | `/compact` |
+| 80% 自动压缩 | ✅ | 保留最近 2 轮 |
+| 实时上下文使用条 | ✅ | 每会话一条，每子 Agent 一条 |
+
+### 7. 计划模式（Plan Mode）
+| 功能 | 状态 | 说明 |
+|------|:----:|------|
+| 只读规划循环 | ✅ | `/plan` 启动独立 AgentLoop，仅 read/search/list/exec 工具 |
+| 计划存入会话状态 | ✅ | `ConversationState` 中的 `PlanTask` 数据模型 |
+| 主循环注入 | ✅ | 用户确认后通过 `PlanInjectionHook` 注入 |
+| 取消待执行计划 | ✅ | `/cancel` |
+
+### 8. 会话历史与持久化
+| 功能 | 状态 | 说明 |
+|------|:----:|------|
+| 跨轮次内存历史 | ✅ | `AgentLoop` 维护跨 `chat()` 的消息列表 |
+| 文件级会话存储 | ✅ | `FileSystemHistoryStore` 写入消息 + 元数据 |
+| 历史录制 Hook | ✅ | `HistoryRecordingHook` 捕获生命周期事件 |
+| 历史侧边栏 | ✅ | 折叠列表，点击恢复 |
+| 子 Agent 注册表恢复 | ✅ | 加载历史时一并恢复 |
+| 上下文使用持久化 | ✅ | 跨刷新保留 |
+| 导出 Markdown | ⏳ | |
+| 分享链接 | ⏳ | 需服务端会话分享 |
+| 会话内搜索 | ⏳ | |
+
+### 9. 多 Agent 协调
+| 功能 | 状态 | 说明 |
+|------|:----:|------|
+| 子 Agent 数据模型 | ✅ | `SubagentInstance` |
+| 线程安全注册表 | ✅ | `SubagentRegistry`，含 createOrReplace / clear |
+| 创建 / 替换工具 | ✅ | `AgentTool` |
+| 持续对话工具 | ✅ | `SendMessageTool` 向已有子 Agent 追加消息 |
+| 每 Agent 状态隔离 | ✅ | 各自的消息列表、上下文条、Hook |
+| 事件路由 | ✅ | `SubagentLoggingHook` 把每 Agent 事件推到 WebSocket |
+| Agent 侧边栏 | ✅ | 列出运行中的子 Agent 与状态 |
+| 拓扑画布 | ✅ | 节点 + 连线 + 状态标签 |
+| 群聊模式 | ✅ | 多 Agent 同屏对话 |
+| Combined Mode UI | ✅ | 在聊天 / 拓扑 / 群聊间切换 |
+
+### 10. 任务管理
+| 功能 | 状态 | 说明 |
+|------|:----:|------|
+| 任务数据模型 | ✅ | `Task` + `TaskStatus` |
+| 任务工具集 | ✅ | `TaskCreateTool` / `TaskUpdateTool` / `TaskGetTool` / `TaskListTool` |
+| `/tasks` 命令 | ✅ | CLI + Web 同步展示 |
+| 状态注入 | ✅ | `TaskStatusPromptPlugin` |
+| 显示 Hook | ✅ | `TaskDisplayHook` 把任务卡片写入 WebSocket |
+| 3+ 步阈值 | ✅ | 仅多步任务才触发 |
+| 主 Agent 限定 | ✅ | 子 Agent 不参与任务管理 |
+
+### 11. Web UI
+| 功能 | 状态 | 说明 |
+|------|:----:|------|
+| WebSocket 实时聊天 | ✅ | 自动重连 + 连接状态指示 |
+| 流式增量渲染 | ✅ | 防抖 100 ms / 50 字符 + 闪烁光标 |
+| Markdown 渲染 | ✅ | `marked.js` |
+| 代码语法高亮 | ✅ | `highlight.js` |
+| XSS 过滤 | ✅ | `DOMPurify` |
+| Thinking 卡片 | ✅ | `<think>` 标签提取折叠 |
+| 9 套主题 + 主题画廊 | ✅ | 全部主题适配代码块和侧边栏分区 |
+| 斜杠命令面板 | ✅ | 模糊匹配 + 键盘导航 |
+| 历史会话侧边栏 | ✅ | 折叠列表，点击恢复 |
+| Agent 侧边栏 | ✅ | 子 Agent 状态 |
+| 拓扑 / 群聊 / Combined Mode | ✅ | Graph View 画布 |
+| 模型 fallback Toast | ✅ | 子 Agent model key 未知时提示 |
+| 任务展示卡片 | ✅ | 与 CLI 共用渲染 |
+| 消息操作 | ⏳ | 复制 / 重新生成 / 编辑后重跑 |
+| 设置面板 | ⏳ | 温度、字号、流式开关等 |
+| 欢迎页 / 空状态 | ⏳ | 介绍 + 快速启动示例 |
+| 工具结果可视化 | ⏳ | diff / 行号 / 终端风格输出 |
+| Skill 路由 | ⏳ | 当前仅注入描述 |
+| 会话内搜索 | ⏳ | Cmd+F 搜索当前对话 |
+| 多模态上传 | ⏳ | 图片 / 文件输入 |
+
+### 12. 语音输入（独立 Python 服务）
+| 功能 | 状态 | 说明 |
+|------|:----:|------|
+| faster-whisper 引擎 | ✅ | 多种模型尺寸；CPU 或 CUDA |
+| EnergyVAD | ✅ | 基于 RMS 的语音活动检测 |
+| 多识别模式 | ✅ | `realtime` / `realtime_final` / `final_only` |
+| 策略接口 | ✅ | `TranscriptionStrategy` + `CorrectionStrategy` |
+| `VoiceFactory` 装配 | ✅ | 按配置组装策略 |
+| 流式纠错 | ✅ | 识别过程中实时修正 |
+| LLM 后处理纠错 | ✅ | 复用 `coloop-agent-setting.json` 模型配置 |
+| HTTP / WebSocket 转写适配 | ✅ | 本地 Whisper 之外的可插拔后端 |
+| 液态玻璃 UI | ✅ | 麦克风一键录音 + 波形可视化 |
+| 推送给 agent server | ✅ | 通过 WebSocket 流式发送识别结果 |
+
+### 13. 配置中心
+| 功能 | 状态 | 说明 |
+|------|:----:|------|
+| `${VAR}` 环境变量插值 | ✅ | API key、URL 等 |
+| JSON 行 / 块注释 | ✅ | `//` 与 `/* */` |
+| 模型 `description` 字段 | ✅ | UI 与 `ListModelsTool` 展示 |
+| 全局 `defaultModel` | ✅ | 子 Agent 未指定 model 时使用 |
+| `maxContextSize` 单位后缀 | ✅ | `k` / `m` / 数字 |
+| MCP 服务端配置 | ✅ | command + args + env（`env` 支持 `${models.*.apiKey}`） |
+| 语音模块配置 | ✅ | 转写 / 纠错策略、识别模式、coloop WS URL |
 
 ---
 
@@ -334,7 +428,7 @@ mvn compile exec:java -Dexec.mainClass="com.coloop.agent.entry.CliApp"
 
 > **核心层永远精简，能力层无限扩展。**
 
-`coloop-agent` 不是要成为第二个 Claude Code，而是要成为一个**透明、可理解、可魔改**的 Agent Loop 内核。当你想搞懂“一个 Coding Agent 到底是怎么工作的”，或者想“从零开始为自己的团队定制一个 Agent”，这里就是最好的起点。
+`coloop-agent` 不是要成为第二个 Claude Code，而是要成为一个**透明、可理解、可魔改**的 Agent Loop 平台。内核足够小，一个下午就能读完；新能力（子 Agent、历史、语音、MCP）通过定义清晰的接口接入，永远不侵蚀核心。当你想搞懂"一个 Coding Agent 到底是怎么工作的"，或者想"从零开始为自己的团队定制一个 Agent"，这里就是最好的起点。
 
 ---
 
