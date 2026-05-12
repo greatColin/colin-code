@@ -1,13 +1,13 @@
 # coloop-agent-voice
 
-独立语音输入服务。基于 faster-whisper，支持流式语音识别与可配置纠错。
+语音输入服务。基于 faster-whisper，支持一次性识别与 LLM 纠错。
 
 ## 功能
 
-- 流式语音识别：边说边出文字
-- 可配置纠错：实时修正 + LLM 后处理，独立开关
-- 本地模型：默认 faster-whisper，支持多尺寸模型
-- 单页前端：Apple 液态玻璃风格，麦克风一键录音
+- 一次性识别：录音完成后自动识别，准确率更高
+- LLM 纠错：可选的后处理纠错
+- 输入法形态：长条状界面，可嵌入 iframe
+- 本地模型：默认 faster-whisper
 
 ## 环境要求
 
@@ -24,20 +24,6 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## 配置
-
-复制 `.env.example` 为 `.env`，按需修改：
-
-```bash
-WHISPER_MODEL=base          # tiny/base/small/medium/large
-WHISPER_DEVICE=cpu          # cpu 或 cuda
-ENABLE_POST_CORRECTION=false
-POST_CORRECTION_MODEL=minimax
-SETTING_FILE=../coloop-agent-core/src/main/resources/coloop-agent-setting.json
-```
-
-后处理纠错复用现有 `coloop-agent-setting.json` 中的模型配置。
-
 ## 运行
 
 ```bash
@@ -50,6 +36,20 @@ python main.py
 ## 使用
 
 1. 点击麦克风按钮开始录音
-2. 实时文本显示在上方灰色区域
-3. 一段话结束后结果追加到下方白色区域
-4. 点击「复制」复制全部结果
+2. 再次点击停止录音
+3. 等待识别完成，结果自动显示
+4. 可在设置中开启 LLM 纠错
+
+## 嵌入
+
+```html
+<iframe src="http://localhost:8000/static/voice-input.html" width="380" height="80"></iframe>
+
+<script>
+window.addEventListener('message', (event) => {
+  if (event.data.type === 'voice-result') {
+    console.log('识别结果:', event.data.text);
+  }
+});
+</script>
+```
