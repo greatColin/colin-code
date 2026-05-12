@@ -3,210 +3,161 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>语音输入器</title>
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <title>语音输入</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px;
             min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-            overflow: hidden;
-            padding: 20px;
+            justify-content: flex-end;
         }
 
-        .glass-panel {
-            background: rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(40px) saturate(180%);
-            -webkit-backdrop-filter: blur(40px) saturate(180%);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 28px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-            padding: 36px;
-            width: 100%;
-            max-width: 560px;
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
-
-        .header {
-            text-align: center;
-            color: rgba(255, 255, 255, 0.9);
-            font-size: 22px;
-            font-weight: 600;
-            letter-spacing: -0.5px;
-        }
-
-        .mic-wrapper {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 16px;
-            padding: 8px 0;
-        }
-
-        .waveform {
-            width: 100%;
-            height: 60px;
+        /* 气泡 */
+        .bubble {
+            background: rgba(30, 30, 30, 0.95);
+            color: #fff;
+            padding: 10px 16px;
             border-radius: 12px;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            font-size: 14px;
+            line-height: 1.5;
+            max-width: 360px;
+            word-break: break-word;
+            margin-bottom: 8px;
             opacity: 0;
-            transition: opacity 0.4s ease;
+            transform: translateY(8px);
+            transition: opacity 0.25s, transform 0.25s;
+            pointer-events: none;
         }
 
-        .waveform.active {
+        .bubble.visible {
             opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
         }
 
+        .bubble.status {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 13px;
+        }
+
+        .bubble.error {
+            background: rgba(200, 50, 50, 0.9);
+        }
+
+        /* 主栏 */
+        .bar {
+            display: flex;
+            align-items: center;
+            background: rgba(30, 30, 30, 0.95);
+            border-radius: 24px;
+            padding: 6px 12px;
+            gap: 10px;
+            width: 360px;
+            backdrop-filter: blur(20px);
+        }
+
+        /* 麦克风按钮 */
         .mic-btn {
-            width: 88px;
-            height: 88px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             border: none;
-            background: rgba(255, 255, 255, 0.12);
-            backdrop-filter: blur(20px);
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            font-size: 20px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 36px;
-            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            flex-shrink: 0;
+            transition: background 0.2s;
         }
 
         .mic-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
-            transform: scale(1.06);
+            background: rgba(255, 255, 255, 0.25);
         }
 
         .mic-btn.recording {
-            background: rgba(255, 59, 48, 0.25);
-            animation: pulse 1.8s ease-in-out infinite;
+            background: rgba(255, 59, 48, 0.4);
+            animation: pulse 1.5s ease-in-out infinite;
         }
 
         @keyframes pulse {
-            0%, 100% { transform: scale(1); box-shadow: 0 4px 16px rgba(255, 59, 48, 0.2); }
-            50% { transform: scale(1.08); box-shadow: 0 6px 24px rgba(255, 59, 48, 0.35); }
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.08); }
         }
 
-        .status-text {
-            text-align: center;
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 13px;
-            min-height: 20px;
-        }
-
-        .realtime-area {
+        /* 声纹 */
+        .waveform {
+            flex: 1;
+            height: 32px;
+            border-radius: 8px;
             background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 16px;
-            padding: 16px 20px;
-            min-height: 52px;
-            color: rgba(255, 255, 255, 0.55);
-            font-size: 16px;
-            line-height: 1.5;
-            font-style: italic;
-            transition: all 0.2s ease;
         }
 
-        .realtime-area.has-content {
-            color: rgba(255, 255, 255, 0.75);
-        }
-
-        .result-area {
-            background: rgba(255, 255, 255, 0.06);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            padding: 20px;
-            min-height: 120px;
-            color: #fff;
-            font-size: 16px;
-            line-height: 1.7;
-            white-space: pre-wrap;
-            word-break: break-word;
-            transition: all 0.2s ease;
-        }
-
-        .btn-group {
+        /* 设置按钮 */
+        .settings-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 18px;
+            cursor: pointer;
             display: flex;
-            gap: 12px;
+            align-items: center;
             justify-content: center;
-        }
-
-        .btn {
-            padding: 10px 28px;
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            background: rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(20px);
-            color: rgba(255, 255, 255, 0.85);
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }
-
-        .btn:hover {
-            background: rgba(255, 255, 255, 0.15);
-            transform: translateY(-1px);
-        }
-
-        .btn:active {
-            transform: translateY(0);
-        }
-
-        .settings-toggle {
-            text-align: center;
-            color: rgba(255, 255, 255, 0.4);
-            font-size: 12px;
-            cursor: pointer;
+            flex-shrink: 0;
             transition: color 0.2s;
         }
 
-        .settings-toggle:hover {
-            color: rgba(255, 255, 255, 0.7);
+        .settings-btn:hover {
+            color: rgba(255, 255, 255, 0.8);
         }
 
+        /* 设置面板 */
         .settings-panel {
             display: none;
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(30, 30, 30, 0.95);
+            border-radius: 0 0 16px 16px;
+            padding: 12px 16px;
+            width: 360px;
             backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 16px;
-            padding: 20px;
-            gap: 14px;
-            flex-direction: column;
         }
 
         .settings-panel.open {
-            display: flex;
+            display: block;
         }
 
         .setting-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            color: rgba(255, 255, 255, 0.75);
-            font-size: 14px;
+            padding: 8px 0;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 13px;
         }
 
+        .setting-row + .setting-row {
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* 开关 */
         .toggle {
-            width: 48px;
-            height: 26px;
-            border-radius: 13px;
-            background: rgba(255, 255, 255, 0.15);
+            width: 40px;
+            height: 22px;
+            border-radius: 11px;
+            background: rgba(255, 255, 255, 0.2);
             position: relative;
             cursor: pointer;
-            transition: background 0.25s ease;
+            transition: background 0.2s;
             flex-shrink: 0;
         }
 
@@ -217,55 +168,52 @@
         .toggle::after {
             content: '';
             position: absolute;
-            width: 22px;
-            height: 22px;
+            width: 18px;
+            height: 18px;
             border-radius: 50%;
             background: #fff;
             top: 2px;
             left: 2px;
-            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+            transition: transform 0.2s;
         }
 
         .toggle.active::after {
-            transform: translateX(22px);
+            transform: translateX(18px);
         }
 
-        .setting-section-label {
-            color: rgba(255, 255, 255, 0.4);
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            padding-top: 8px;
-            border-top: 1px solid rgba(255, 255, 255, 0.06);
+        /* 单选 */
+        .radio-group {
+            display: flex;
+            gap: 12px;
         }
 
-        .setting-section-label:first-child {
-            border-top: none;
-            padding-top: 0;
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.7);
         }
 
-        .radio-btn {
-            width: 20px;
-            height: 20px;
+        .radio-dot {
+            width: 16px;
+            height: 16px;
             border-radius: 50%;
             border: 2px solid rgba(255, 255, 255, 0.3);
             position: relative;
-            cursor: pointer;
-            transition: all 0.25s ease;
             flex-shrink: 0;
         }
 
-        .radio-btn.active {
+        .radio-dot.active {
             border-color: #34c759;
         }
 
-        .radio-btn.active::after {
+        .radio-dot.active::after {
             content: '';
             position: absolute;
-            width: 10px;
-            height: 10px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
             background: #34c759;
             top: 50%;
@@ -273,79 +221,326 @@
             transform: translate(-50%, -50%);
         }
 
-        .radio-btn.disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
+        /* 旋转动画 */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
-        .ws-status {
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.4);
-        }
-
-        .ws-status.connected {
-            color: #34c759;
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            vertical-align: middle;
+            margin-right: 6px;
         }
     </style>
 </head>
 <body>
-    <div class="glass-panel">
-        <div class="header">语音输入器</div>
-        <div class="mic-wrapper">
-            <button class="mic-btn" id="micBtn">&#127908;</button>
-            <canvas class="waveform" id="waveform" width="480" height="60"></canvas>
-        </div>
-        <div class="status-text" id="statusText">点击麦克风开始录音</div>
-        <div class="realtime-area" id="realtimeText"></div>
-        <div class="result-area" id="resultArea"></div>
-        <div class="btn-group">
-            <button class="btn" id="copyBtn">复制</button>
-            <button class="btn" id="clearBtn">清空</button>
-        </div>
-        <div class="settings-toggle" id="settingsToggle">&#9881; 设置</div>
-        <div class="settings-panel" id="settingsPanel">
-            <div class="setting-section-label">识别模式</div>
-            <div class="setting-row">
-                <span>实时识别</span>
-                <div class="radio-btn active" data-group="recognition" data-value="realtime" id="modeRealtime"></div>
-            </div>
-            <div class="setting-row">
-                <span>实时 + 最终识别</span>
-                <div class="radio-btn" data-group="recognition" data-value="realtime_final" id="modeRealtimeFinal"></div>
-            </div>
-            <div class="setting-row">
-                <span>仅最终识别</span>
-                <div class="radio-btn" data-group="recognition" data-value="final_only" id="modeFinalOnly"></div>
-            </div>
+    <div class="bubble" id="bubble"></div>
 
-            <div class="setting-section-label">纠错</div>
-            <div class="setting-row">
-                <span>实时修正</span>
-                <div class="toggle active" id="streamingToggle"></div>
-            </div>
-            <div class="setting-row">
-                <span>后处理纠错</span>
-                <div class="toggle active" id="postToggle"></div>
-            </div>
+    <div class="bar">
+        <button class="mic-btn" id="micBtn">🎤</button>
+        <canvas class="waveform" id="waveform"></canvas>
+        <button class="settings-btn" id="settingsBtn">⚙</button>
+    </div>
 
-            <div class="setting-section-label">结束操作</div>
-            <div class="setting-row">
-                <span>无操作</span>
-                <div class="radio-btn active" data-group="endaction" data-value="none" id="endNone"></div>
-            </div>
-            <div class="setting-row">
-                <span>自动复制到剪贴板</span>
-                <div class="radio-btn" data-group="endaction" data-value="auto_copy" id="endAutoCopy"></div>
-            </div>
-            <div class="setting-row">
-                <span>发送到 coloop</span>
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <span class="ws-status" id="wsStatus">○ 未连接</span>
-                    <div class="radio-btn" data-group="endaction" data-value="send_coloop" id="endSendColoop"></div>
+    <div class="settings-panel" id="settingsPanel">
+        <div class="setting-row">
+            <span>LLM 纠错</span>
+            <div class="toggle" id="correctionToggle"></div>
+        </div>
+        <div class="setting-row">
+            <span>识别后</span>
+            <div class="radio-group">
+                <div class="radio-option" data-value="none">
+                    <div class="radio-dot active" data-group="postAction" data-value="none"></div>
+                    <span>无操作</span>
+                </div>
+                <div class="radio-option" data-value="copy">
+                    <div class="radio-dot" data-group="postAction" data-value="copy"></div>
+                    <span>复制</span>
                 </div>
             </div>
         </div>
     </div>
-    <script src="voice-input.js"></script>
+
+    <script>
+    (function() {
+        // DOM
+        const micBtn = document.getElementById('micBtn');
+        const waveformCanvas = document.getElementById('waveform');
+        const settingsBtn = document.getElementById('settingsBtn');
+        const settingsPanel = document.getElementById('settingsPanel');
+        const bubbleEl = document.getElementById('bubble');
+        const correctionToggle = document.getElementById('correctionToggle');
+        const waveformCtx = waveformCanvas.getContext('2d');
+
+        // State
+        let isRecording = false;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let audioContext = null;
+        let analyser = null;
+        let animationId = null;
+        let envelopeHistory = [];
+        const MAX_HISTORY = 100;
+
+        // 设置
+        let enableCorrection = false;
+        let postAction = 'none'; // 'none' | 'copy'
+
+        // --- 气泡 ---
+        function showBubble(text, type) {
+            bubbleEl.textContent = text;
+            bubbleEl.className = 'bubble visible';
+            if (type === 'status') bubbleEl.classList.add('status');
+            else if (type === 'error') bubbleEl.classList.add('error');
+        }
+
+        function hideBubble() {
+            bubbleEl.className = 'bubble';
+        }
+
+        // --- 声纹 ---
+        function resizeCanvas() {
+            const rect = waveformCanvas.getBoundingClientRect();
+            waveformCanvas.width = rect.width * window.devicePixelRatio;
+            waveformCanvas.height = rect.height * window.devicePixelRatio;
+            waveformCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        function drawWaveform() {
+            if (!analyser) return;
+
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            analyser.getByteTimeDomainData(dataArray);
+
+            let peak = 0;
+            for (let i = 0; i < bufferLength; i++) {
+                const v = Math.abs(dataArray[i] - 128) / 128;
+                if (v > peak) peak = v;
+            }
+
+            envelopeHistory.push(peak);
+            if (envelopeHistory.length > MAX_HISTORY) envelopeHistory.shift();
+
+            const rect = waveformCanvas.getBoundingClientRect();
+            const width = rect.width;
+            const height = rect.height;
+            const centerY = height / 2;
+
+            waveformCtx.clearRect(0, 0, width, height);
+
+            // 填充
+            waveformCtx.beginPath();
+            waveformCtx.moveTo(0, centerY);
+            for (let i = 0; i < envelopeHistory.length; i++) {
+                const x = (i / (MAX_HISTORY - 1)) * width;
+                const y = centerY - envelopeHistory[i] * centerY * 0.8;
+                waveformCtx.lineTo(x, y);
+            }
+            for (let i = envelopeHistory.length - 1; i >= 0; i--) {
+                const x = (i / (MAX_HISTORY - 1)) * width;
+                const y = centerY + envelopeHistory[i] * centerY * 0.8;
+                waveformCtx.lineTo(x, y);
+            }
+            waveformCtx.closePath();
+            waveformCtx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+            waveformCtx.fill();
+
+            // 线条
+            waveformCtx.beginPath();
+            for (let i = 0; i < envelopeHistory.length; i++) {
+                const x = (i / (MAX_HISTORY - 1)) * width;
+                const y = centerY - envelopeHistory[i] * centerY * 0.8;
+                if (i === 0) waveformCtx.moveTo(x, y);
+                else waveformCtx.lineTo(x, y);
+            }
+            waveformCtx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+            waveformCtx.lineWidth = 1.5;
+            waveformCtx.lineJoin = 'round';
+            waveformCtx.stroke();
+
+            animationId = requestAnimationFrame(drawWaveform);
+        }
+
+        // --- 录音 ---
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        sampleRate: 16000,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                    }
+                });
+
+                // 声纹可视化
+                audioContext = new AudioContext({ sampleRate: 16000 });
+                const source = audioContext.createMediaStreamSource(stream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                source.connect(analyser);
+
+                resizeCanvas();
+                envelopeHistory = [];
+                drawWaveform();
+
+                // MediaRecorder
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: 'audio/webm;codecs=opus'
+                });
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) audioChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                    stream.getTracks().forEach(t => t.stop());
+                    if (audioContext) {
+                        audioContext.close();
+                        audioContext = null;
+                    }
+                    cancelAnimationFrame(animationId);
+                    clearCanvas();
+                    await recognizeAudio(blob);
+                };
+
+                mediaRecorder.start(100); // 每100ms收集一次数据
+                isRecording = true;
+                micBtn.classList.add('recording');
+                micBtn.textContent = '⏹';
+                hideBubble();
+
+            } catch (err) {
+                console.error('录音失败:', err);
+                showBubble('无法访问麦克风', 'error');
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            isRecording = false;
+            micBtn.classList.remove('recording');
+            micBtn.textContent = '🎤';
+        }
+
+        function clearCanvas() {
+            const rect = waveformCanvas.getBoundingClientRect();
+            waveformCtx.clearRect(0, 0, rect.width, rect.height);
+        }
+
+        // --- 识别 ---
+        async function recognizeAudio(audioBlob) {
+            showBubble('<span class="spinner"></span>识别中...', 'status');
+
+            const formData = new FormData();
+            formData.append('audio', audioBlob, 'recording.webm');
+            formData.append('enable_correction', enableCorrection);
+
+            try {
+                const resp = await fetch('/api/recognize', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!resp.ok) {
+                    throw new Error(`HTTP ${resp.status}`);
+                }
+
+                const data = await resp.json();
+
+                if (data.corrected) {
+                    showBubble('<span class="spinner"></span>纠错中...', 'status');
+                    await new Promise(r => setTimeout(r, 200)); // 短暂显示纠错状态
+                }
+
+                if (data.text) {
+                    showBubble(data.text);
+
+                    // 识别后操作
+                    if (postAction === 'copy') {
+                        try {
+                            await navigator.clipboard.writeText(data.text);
+                        } catch (e) {
+                            console.warn('复制失败:', e);
+                        }
+                    }
+
+                    // 通知父页面
+                    window.parent.postMessage({
+                        type: 'voice-result',
+                        text: data.text,
+                        rawText: data.raw_text,
+                        corrected: data.corrected,
+                    }, '*');
+                } else {
+                    hideBubble();
+                }
+
+            } catch (err) {
+                console.error('识别失败:', err);
+                showBubble('识别失败: ' + err.message, 'error');
+            }
+        }
+
+        // --- 事件绑定 ---
+        micBtn.addEventListener('click', () => {
+            if (isRecording) stopRecording();
+            else startRecording();
+        });
+
+        settingsBtn.addEventListener('click', () => {
+            settingsPanel.classList.toggle('open');
+        });
+
+        correctionToggle.addEventListener('click', () => {
+            correctionToggle.classList.toggle('active');
+            enableCorrection = correctionToggle.classList.contains('active');
+        });
+
+        // 单选组
+        document.querySelectorAll('.radio-dot').forEach(dot => {
+            dot.addEventListener('click', () => {
+                const group = dot.dataset.group;
+                const value = dot.dataset.value;
+                document.querySelectorAll(`.radio-dot[data-group="${group}"]`).forEach(d => {
+                    d.classList.remove('active');
+                });
+                dot.classList.add('active');
+                if (group === 'postAction') postAction = value;
+            });
+        });
+
+        // 窗口大小变化时重绘
+        window.addEventListener('resize', () => {
+            if (analyser) {
+                resizeCanvas();
+            }
+        });
+
+        // 监听父页面消息
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'voice-start') {
+                if (!isRecording) startRecording();
+            } else if (event.data.type === 'voice-stop') {
+                if (isRecording) stopRecording();
+            }
+        });
+
+        // 初始化
+        resizeCanvas();
+    })();
+    </script>
 </body>
 </html>
