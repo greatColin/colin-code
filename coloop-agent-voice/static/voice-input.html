@@ -295,7 +295,7 @@
 
         // --- 气泡 ---
         function showBubble(text, type) {
-            bubbleEl.textContent = text;
+            bubbleEl.innerHTML = text;
             bubbleEl.className = 'bubble visible';
             if (type === 'status') bubbleEl.classList.add('status');
             else if (type === 'error') bubbleEl.classList.add('error');
