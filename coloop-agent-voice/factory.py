@@ -22,19 +22,6 @@ class VoiceFactory:
                 compute_type=params.get("computeType", "int8"),
                 model_dir=params.get("modelDir", "./models"),
             )
-        elif name == "http_api":
-            from engine.http_adapter import HttpTranscriptionStrategy
-            return HttpTranscriptionStrategy(
-                api_url=params.get("apiUrl", ""),
-                api_key=params.get("apiKey", ""),
-                model=params.get("model"),
-            )
-        elif name == "websocket":
-            from engine.websocket_adapter import WebSocketTranscriptionStrategy
-            return WebSocketTranscriptionStrategy(
-                ws_url=params.get("wsUrl", ""),
-                api_key=params.get("apiKey"),
-            )
         else:
             raise ValueError(f"Unknown transcription strategy: {name}")
 
