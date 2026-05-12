@@ -272,25 +272,7 @@
         .sidebar-section-body.collapsed {
             display: none;
         }
-        .history-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 7px 10px;
-            border-radius: 8px;
-            font-size: 12px;
-            line-height: 1.4;
-            color: var(--sidebar-history-item-color, #555);
-            cursor: pointer;
-            transition: all 0.15s ease;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .history-item:hover {
-            background: var(--sidebar-history-item-hover-bg, #ede9f7);
-            color: var(--sidebar-history-item-hover-color, #4a306d);
-        }
+        /* history-item styles defined below */
 
         /* === Task Sidebar === */
         .task-empty {
@@ -336,6 +318,42 @@
             color: var(--sidebar-section-header-color, #8b7aa0);
             text-decoration: line-through;
             opacity: 0.7;
+        }
+        .task-in_progress {
+            color: var(--sidebar-item-active-color, #4a306d);
+            font-weight: 500;
+            background: var(--sidebar-item-active-bg, #f0ebfa);
+        }
+        .history-empty {
+            padding: 12px;
+            font-size: 12px;
+            color: var(--sidebar-section-header-color, #8b7aa0);
+            text-align: center;
+        }
+        .history-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            padding: 7px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            line-height: 1.4;
+            color: var(--sidebar-history-item-color, #555);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .history-item:hover {
+            background: var(--sidebar-history-item-hover-bg, #ede9f7);
+            color: var(--sidebar-history-item-hover-color, #4a306d);
+        }
+        .history-title {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .history-time {
+            font-size: 10px;
+            color: var(--sidebar-section-header-color, #8b7aa0);
         }
         .task-count-badge {
             font-size: 10px;

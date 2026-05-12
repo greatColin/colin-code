@@ -67,6 +67,10 @@
     const agentSidebarEl = document.getElementById('agent-sidebar');
     const agentListEl = document.getElementById('current-session-list');  // 修正: 使用正确的ID
     const agentSidebarToggleEl = document.getElementById('agent-sidebar-toggle');
+    const taskListContainerEl = document.getElementById('task-list-container');
+    const taskCountBadgeEl = document.getElementById('task-count-badge');
+    const historyListEl = document.getElementById('history-list');
+    const sessionTitleEl = document.getElementById('session-title');
 
     const wsUrl = 'ws://' + window.location.host + '/ws/agent';
     const STREAM_RENDER_INTERVAL = 80;
@@ -157,6 +161,8 @@
                 clearTimeout(reconnectTimer);
                 reconnectTimer = null;
             }
+            // 请求历史记录列表
+            ws.send(JSON.stringify({ action: 'list_history' }));
         };
 
         ws.onmessage = function(event) {
@@ -248,9 +254,19 @@
                 availableCommands = (msg.payload && msg.payload.commands) || [];
                 break;
             case 'task_list':
+                renderTaskList(msg.payload.tasks || []);
+                return;
             case 'task_update':
-                // No-op: task sidebar removed, keep as defensive stub
-                break;
+                renderTaskUpdate(msg.payload);
+                return;
+            case 'history_list':
+                renderHistoryList(msg.payload.sessions || []);
+                return;
+            case 'session_loaded':
+                if (sessionTitleEl && msg.payload.title) {
+                    sessionTitleEl.textContent = msg.payload.title;
+                }
+                return;
             case 'toast':
                 showToast(msg.payload.message, msg.payload.durationMs);
                 return;
@@ -701,6 +717,145 @@
         });
     }
 
+    // --- Task sidebar rendering ---
+    function renderTaskList(tasks) {
+        if (!taskListContainerEl) return;
+        taskListContainerEl.innerHTML = '';
+        if (!tasks.length) {
+            taskListContainerEl.innerHTML = '<div class="task-empty">暂无任务</div>';
+            if (taskCountBadgeEl) taskCountBadgeEl.textContent = '';
+            return;
+        }
+        if (taskCountBadgeEl) taskCountBadgeEl.textContent = tasks.length;
+        tasks.forEach(function(task) {
+            taskListContainerEl.appendChild(createTaskItem(task));
+        });
+    }
+
+    function renderTaskUpdate(payload) {
+        if (!taskListContainerEl) return;
+        var existing = taskListContainerEl.querySelector('[data-task-id="' + payload.id + '"]');
+        if (existing) {
+            existing.className = 'task-item task-' + (payload.status || 'pending');
+            var descEl = existing.querySelector('.task-subject');
+            if (descEl && payload.description) descEl.textContent = payload.description;
+            var statusEl = existing.querySelector('.task-status-icon');
+            if (statusEl) statusEl.textContent = formatTaskStatus(payload.status);
+        } else {
+            var emptyEl = taskListContainerEl.querySelector('.task-empty');
+            if (emptyEl) emptyEl.remove();
+            taskListContainerEl.appendChild(createTaskItem(payload));
+            if (taskCountBadgeEl) {
+                var count = taskListContainerEl.querySelectorAll('.task-item').length;
+                taskCountBadgeEl.textContent = count;
+            }
+        }
+    }
+
+    function createTaskItem(task) {
+        var item = document.createElement('div');
+        item.className = 'task-item task-' + (task.status || 'pending');
+        item.dataset.taskId = task.id;
+
+        var statusSpan = document.createElement('span');
+        statusSpan.className = 'task-status-icon';
+        statusSpan.textContent = formatTaskStatus(task.status);
+
+        var descSpan = document.createElement('span');
+        descSpan.className = 'task-subject';
+        descSpan.textContent = task.description || task.subject || '';
+
+        item.appendChild(statusSpan);
+        item.appendChild(descSpan);
+        return item;
+    }
+
+    function formatTaskStatus(status) {
+        switch (status) {
+            case 'completed': return '✓';
+            case 'in_progress': return '●';
+            case 'pending': return '○';
+            case 'deleted': return '✕';
+            default: return '○';
+        }
+    }
+
+    // --- History sidebar rendering ---
+    function renderHistoryList(sessions) {
+        if (!historyListEl) return;
+        historyListEl.innerHTML = '';
+        if (!sessions.length) {
+            historyListEl.innerHTML = '<div class="history-empty">暂无历史记录</div>';
+            return;
+        }
+        sessions.forEach(function(session) {
+            var item = document.createElement('div');
+            item.className = 'history-item';
+            item.dataset.sessionId = session.id;
+
+            var titleSpan = document.createElement('span');
+            titleSpan.className = 'history-title';
+            titleSpan.textContent = session.title || session.id;
+
+            var timeSpan = document.createElement('span');
+            timeSpan.className = 'history-time';
+            timeSpan.textContent = formatHistoryTime(session.updatedAt || session.createdAt);
+
+            item.appendChild(titleSpan);
+            item.appendChild(timeSpan);
+
+            item.addEventListener('click', function() {
+                loadHistorySession(session.id);
+            });
+
+            historyListEl.appendChild(item);
+        });
+    }
+
+    function formatHistoryTime(ts) {
+        if (!ts) return '';
+        try {
+            var d = new Date(ts);
+            var month = (d.getMonth() + 1).toString().padStart(2, '0');
+            var day = d.getDate().toString().padStart(2, '0');
+            var hour = d.getHours().toString().padStart(2, '0');
+            var min = d.getMinutes().toString().padStart(2, '0');
+            return month + '-' + day + ' ' + hour + ':' + min;
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function loadHistorySession(sessionId) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        ws.send(JSON.stringify({ action: 'load_session', sessionId: sessionId }));
+    }
+
+    // --- Sidebar section toggle ---
+    function initSectionToggles() {
+        var headers = document.querySelectorAll('.sidebar-section-header');
+        headers.forEach(function(header) {
+            header.addEventListener('click', function() {
+                var section = header.closest('.sidebar-section');
+                if (!section) return;
+                var body = section.querySelector('.sidebar-section-body');
+                var toggle = header.querySelector('.section-toggle');
+                if (!body) return;
+
+                var isCollapsed = body.classList.contains('collapsed');
+                if (isCollapsed) {
+                    body.classList.remove('collapsed');
+                    section.classList.add('expanded');
+                    if (toggle) toggle.textContent = '▼';
+                } else {
+                    body.classList.add('collapsed');
+                    section.classList.remove('expanded');
+                    if (toggle) toggle.textContent = '▶';
+                }
+            });
+        });
+    }
+
     function showToast(message, durationMs) {
         var toast = document.createElement('div');
         toast.className = 'toast-notification';
@@ -719,6 +874,9 @@
             }, 300);
         }, durationMs);
     }
+
+    // Initialize sidebar section toggles
+    initSectionToggles();
 
     // Start connection
     connect();
