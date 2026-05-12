@@ -1,3 +1,4 @@
+import asyncio
 import time
 import tempfile
 import os
@@ -16,28 +17,26 @@ def set_engine(transcription, correction):
 
 
 @router.post("/api/recognize")
-async def recognize(
+def recognize(
     audio: UploadFile = File(...),
     enable_correction: bool = Form(False),
 ):
+    """接收音频文件，返回识别结果。"""
     if _transcription is None:
         return {"text": "", "raw_text": "", "corrected": False, "duration_ms": 0, "error": "引擎未初始化"}
 
     start_time = time.time()
 
-    # Save temp file
+    # Save temp file - faster-whisper can handle various formats via ffmpeg
     suffix = ".webm" if "webm" in (audio.content_type or "") else ".wav"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        content = await audio.read()
+        content = audio.file.read()
         tmp.write(content)
         tmp_path = tmp.name
 
     try:
-        with open(tmp_path, "rb") as f:
-            audio_bytes = f.read()
-
-        # Transcribe
-        raw_text = _transcription.transcribe(audio_bytes, language="zh")
+        # Pass file path to engine - faster-whisper uses ffmpeg for format conversion
+        raw_text = _transcription.transcribe(tmp_path, language="zh")
         duration_ms = int((time.time() - start_time) * 1000)
 
         if not raw_text:
@@ -48,7 +47,7 @@ async def recognize(
         corrected = False
         if enable_correction and _correction:
             try:
-                corrected_text = await _correction.correct(raw_text)
+                corrected_text = asyncio.run(_correction.correct(raw_text))
                 if corrected_text != raw_text:
                     text = corrected_text
                     corrected = True
