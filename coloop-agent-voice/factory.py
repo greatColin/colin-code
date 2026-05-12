@@ -5,7 +5,7 @@ from correction.no_op_corrector import NoOpCorrectionStrategy
 
 
 class VoiceFactory:
-    """根据配置创建策略实例并组装 VoiceSession"""
+    """根据配置创建转写和纠错策略实例"""
 
     def __init__(self, setting_file: str = None):
         self.config = VoiceConfig(setting_file)

@@ -10,7 +10,6 @@ def test_defaults_when_no_file():
     assert config.get("host") == "0.0.0.0"
     assert config.get("port") == 8000
     assert config.get("language") == "zh"
-    assert config.get("enableStreamingCorrection") is True
 
 
 def test_defaults_when_empty_config():
@@ -82,29 +81,3 @@ def test_missing_file_uses_defaults():
     assert config.get("language") == "zh"
 
 
-def test_default_recognition_mode():
-    config = VoiceConfig()
-    assert config.get("recognitionMode") == "realtime"
-
-
-def test_default_coloop_ws_url():
-    config = VoiceConfig()
-    assert config.get_coloop_ws_url() == "ws://localhost:8080/ws/agent"
-
-
-def test_coloop_ws_url_from_config():
-    with tempfile.TemporaryDirectory() as tmp:
-        path = os.path.join(tmp, "setting.json")
-        with open(path, "w") as f:
-            json.dump({
-                "voice": {
-                    "coloopServer": {"wsUrl": "ws://192.168.1.100:9090/ws/agent"}
-                }
-            }, f)
-        config = VoiceConfig(setting_file=path)
-        assert config.get_coloop_ws_url() == "ws://192.168.1.100:9090/ws/agent"
-
-
-def test_default_enable_post_correction():
-    config = VoiceConfig()
-    assert config.get("enablePostCorrection") is True

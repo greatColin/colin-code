@@ -2,9 +2,11 @@ import asyncio
 import time
 import tempfile
 import os
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 
 router = APIRouter()
+
+MAX_AUDIO_SIZE = 10 * 1024 * 1024  # 10 MB
 
 _transcription = None
 _correction = None
@@ -17,7 +19,7 @@ def set_engine(transcription, correction):
 
 
 @router.post("/api/recognize")
-def recognize(
+async def recognize(
     audio: UploadFile = File(...),
     enable_correction: bool = Form(False),
 ):
@@ -31,12 +33,18 @@ def recognize(
     suffix = ".webm" if "webm" in (audio.content_type or "") else ".wav"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         content = audio.file.read()
+        if len(content) > MAX_AUDIO_SIZE:
+            os.unlink(tmp.name)
+            raise HTTPException(413, "音频文件过大，最大支持 10MB")
         tmp.write(content)
         tmp_path = tmp.name
 
     try:
         # Pass file path to engine - faster-whisper uses ffmpeg for format conversion
-        raw_text = _transcription.transcribe(tmp_path, language="zh")
+        loop = asyncio.get_running_loop()
+        raw_text = await loop.run_in_executor(
+            None, lambda: _transcription.transcribe(tmp_path, language="zh")
+        )
         duration_ms = int((time.time() - start_time) * 1000)
 
         if not raw_text:
@@ -47,7 +55,7 @@ def recognize(
         corrected = False
         if enable_correction and _correction:
             try:
-                corrected_text = asyncio.run(_correction.correct(raw_text))
+                corrected_text = await _correction.correct(raw_text)
                 if corrected_text != raw_text:
                     text = corrected_text
                     corrected = True
