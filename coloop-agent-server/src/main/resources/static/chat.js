@@ -65,7 +65,7 @@
     const statusEl = document.getElementById('connection-status');
     const commandSuggestionsEl = document.getElementById('command-suggestions');
     const agentSidebarEl = document.getElementById('agent-sidebar');
-    const agentListEl = document.getElementById('agent-list');
+    const agentListEl = document.getElementById('current-session-list');  // 修正: 使用正确的ID
     const agentSidebarToggleEl = document.getElementById('agent-sidebar-toggle');
 
     const wsUrl = 'ws://' + window.location.host + '/ws/agent';
