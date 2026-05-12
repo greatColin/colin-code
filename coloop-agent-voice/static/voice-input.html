@@ -294,8 +294,9 @@
         let postAction = 'none'; // 'none' | 'copy'
 
         // --- 气泡 ---
-        function showBubble(text, type) {
-            bubbleEl.innerHTML = text;
+        function showBubble(text, type, isHtml) {
+            if (isHtml) bubbleEl.innerHTML = text;
+            else bubbleEl.textContent = text;
             bubbleEl.className = 'bubble visible';
             if (type === 'status') bubbleEl.classList.add('status');
             else if (type === 'error') bubbleEl.classList.add('error');
@@ -442,7 +443,7 @@
 
         // --- 识别 ---
         async function recognizeAudio(audioBlob) {
-            showBubble('<span class="spinner"></span>识别中...', 'status');
+            showBubble('<span class="spinner"></span>识别中...', 'status', true);
 
             const formData = new FormData();
             formData.append('audio', audioBlob, 'recording.webm');
@@ -461,7 +462,7 @@
                 const data = await resp.json();
 
                 if (data.corrected) {
-                    showBubble('<span class="spinner"></span>纠错中...', 'status');
+                    showBubble('<span class="spinner"></span>纠错中...', 'status', true);
                     await new Promise(r => setTimeout(r, 200)); // 短暂显示纠错状态
                 }
 
