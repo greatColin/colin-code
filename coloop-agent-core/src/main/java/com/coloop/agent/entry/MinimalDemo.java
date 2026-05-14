@@ -35,6 +35,7 @@ public class MinimalDemo {
             .withCapability(StandardCapability.LIST_DIRECTORY_TOOL, config)
             .withCapability(StandardCapability.MCP_CLIENT, config)
             .withCapability(StandardCapability.BASE_PROMPT, config)
+            .withCapability(StandardCapability.TOOL_CALLING_RULES, config)
             .build(provider, config);
 
         String result = agentLoop.chat("帮我读取 pom.xml 的前 10 行");
