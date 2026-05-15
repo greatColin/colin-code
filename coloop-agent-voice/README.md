@@ -15,28 +15,33 @@
 - 推荐 8GB+ 内存（CPU 运行 base/small 模型）
 - 可选 NVIDIA GPU + CUDA
 
-## 安装
+## 安装依赖
 
 ```bash
 cd coloop-agent-voice
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
 ## 配置
 
-复制 `.env.example` 为 `.env`，按需修改：
+复用上层 `coloop-agent-core/src/main/resources/coloop-agent-setting.json`：
 
-```bash
-WHISPER_MODEL=base          # tiny/base/small/medium/large
-WHISPER_DEVICE=cpu          # cpu 或 cuda
-ENABLE_POST_CORRECTION=false
-POST_CORRECTION_MODEL=minimax
-SETTING_FILE=../coloop-agent-core/src/main/resources/coloop-agent-setting.json
+```jsonc
+{
+  "voice": {
+    "host": "0.0.0.0",
+    "port": 8000,
+    "language": "zh",
+    "recognitionMode": "realtime",
+    "enableStreamingCorrection": true,
+    "enablePostCorrection": true,
+    "transcription": { "strategy": "local_whisper" },
+    "correction": { "strategy": "none" }
+  }
+}
 ```
 
-后处理纠错复用现有 `coloop-agent-setting.json` 中的模型配置。
+后处理纠错复用 `coloop-agent-setting.json` 中的模型配置。
 
 ## 运行
 

@@ -31,9 +31,19 @@ class VoiceConfig:
             return
         with open(p, "r", encoding="utf-8") as f:
             raw_text = f.read()
+        raw_text = self._strip_json_comments(raw_text)
         raw_text = self._expand_env_vars(raw_text)
         self._raw = json.loads(raw_text)
         self._models = self._raw.get("models", {})
+
+    @staticmethod
+    def _strip_json_comments(text: str) -> str:
+        # Strip // line and /* */ block comments while preserving string contents.
+        pattern = re.compile(
+            r'("(?:\\.|[^"\\])*")|(//[^\n]*|/\*[\s\S]*?\*/)',
+            re.MULTILINE,
+        )
+        return pattern.sub(lambda m: m.group(1) if m.group(1) else "", text)
 
     @staticmethod
     def _expand_env_vars(text: str) -> str:
@@ -42,8 +52,9 @@ class VoiceConfig:
             return os.environ.get(var_name, match.group(0))
         return re.sub(r"\$\{(\w+)\}", replacer, text)
 
-    def get(self, key: str) -> Any:
-        return self._voice.get(key, self.DEFAULTS.get(key))
+    def get(self, key: str, default: Any = None) -> Any:
+        fallback = default if default is not None else self.DEFAULTS.get(key)
+        return self._voice.get(key, fallback)
 
     def get_transcription_strategy_name(self) -> str:
         return self._voice.get("transcription", {}).get("strategy", "local_whisper")
