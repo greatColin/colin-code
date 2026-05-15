@@ -66,6 +66,7 @@ public class CliApp {
             .withCapability(StandardCapability.SEARCH_FILES_TOOL, config)
             .withCapability(StandardCapability.LIST_DIRECTORY_TOOL, config)
             .withCapability(StandardCapability.BASE_PROMPT, config)
+            .withCapability(StandardCapability.TOOL_CALLING_RULES, config)
             .withCapability(StandardCapability.AGENTS_MD_PROMPT, config)
             .withCapability(StandardCapability.SUMMARY_PROMPT, config)
             .withCapability(StandardCapability.LOGGING_HOOK, config)

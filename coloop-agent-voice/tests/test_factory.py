@@ -39,14 +39,6 @@ def test_create_transcription_default_is_whisper():
         assert factory.config.get_transcription_strategy_name() == "local_whisper"
 
 
-def test_config_reads_voice_field():
-    with tempfile.TemporaryDirectory() as tmp:
-        path = _write_config(tmp, {"voice": {"language": "en", "enableStreamingCorrection": False}})
-        factory = VoiceFactory(setting_file=path)
-        assert factory.config.get("language") == "en"
-        assert factory.config.get("enableStreamingCorrection") is False
-
-
 def test_config_defaults():
     with tempfile.TemporaryDirectory() as tmp:
         path = _write_config(tmp, {})

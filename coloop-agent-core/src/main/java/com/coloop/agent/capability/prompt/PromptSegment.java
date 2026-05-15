@@ -58,8 +58,14 @@ public enum PromptSegment {
     TOOL_USAGE(
         "工具使用原则",
         "- 当存在更相关的专用工具时，不要用 exec 去拼凑命令。专用工具能让用户更好地理解和审查你的工作。\n"
-      + "- 你可以在一次回复中调用多个工具。若工具之间无依赖，尽量并行调用以提高效率；若有依赖，则必须串行执行。\n"
-      + "- 当前 demo 仅注册了 exec 工具，因此文件读写、搜索类操作暂时只能通过 exec 完成。",
+      + "- 你可以在一次回复中调用多个工具。若工具之间无依赖，尽量并行调用以提高效率；若有依赖，则必须串行执行。",
+        true,
+        null
+    ),
+
+    TOOL_CALLING_RULES(
+        "工具调用规则",
+        "详见 ToolCallingRulesPromptPlugin，由 StandardCapability.TOOL_CALLING_RULES 加载。",
         true,
         null
     ),

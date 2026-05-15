@@ -8,6 +8,7 @@ import com.coloop.agent.capability.prompt.AgentsMdPromptPlugin;
 import com.coloop.agent.capability.prompt.BasePromptPlugin;
 import com.coloop.agent.capability.prompt.SkillPromptPlugin;
 import com.coloop.agent.capability.prompt.SummaryPromptPlugin;
+import com.coloop.agent.capability.prompt.ToolCallingRulesPromptPlugin;
 import com.coloop.agent.capability.tool.exec.ExecTool;
 import com.coloop.agent.capability.tool.filesystem.ReadFileTool;
 import com.coloop.agent.capability.tool.filesystem.WriteFileTool;
@@ -36,6 +37,16 @@ public enum StandardCapability {
             @Override
             public Object apply(AppConfig config) {
                 return new BasePromptPlugin();
+            }
+        }
+    ),
+    TOOL_CALLING_RULES(
+        "tool_calling_rules", "工具调用规则", "注入工具调用的格式约束、路径规则、错误恢复等最佳实践",
+        CapabilityType.PROMPT_PLUGIN,
+        new Function<AppConfig, Object>() {
+            @Override
+            public Object apply(AppConfig config) {
+                return new ToolCallingRulesPromptPlugin();
             }
         }
     ),

@@ -5,7 +5,7 @@ from correction.no_op_corrector import NoOpCorrectionStrategy
 
 
 class VoiceFactory:
-    """根据配置创建策略实例并组装 VoiceSession"""
+    """根据配置创建转写和纠错策略实例"""
 
     def __init__(self, setting_file: str = None):
         self.config = VoiceConfig(setting_file)
@@ -21,19 +21,6 @@ class VoiceFactory:
                 device=params.get("device", "cpu"),
                 compute_type=params.get("computeType", "int8"),
                 model_dir=params.get("modelDir", "./models"),
-            )
-        elif name == "http_api":
-            from engine.http_adapter import HttpTranscriptionStrategy
-            return HttpTranscriptionStrategy(
-                api_url=params.get("apiUrl", ""),
-                api_key=params.get("apiKey", ""),
-                model=params.get("model"),
-            )
-        elif name == "websocket":
-            from engine.websocket_adapter import WebSocketTranscriptionStrategy
-            return WebSocketTranscriptionStrategy(
-                ws_url=params.get("wsUrl", ""),
-                api_key=params.get("apiKey"),
             )
         else:
             raise ValueError(f"Unknown transcription strategy: {name}")
